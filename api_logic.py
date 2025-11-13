@@ -3,6 +3,7 @@ from urllib.error import URLError, HTTPError
 import requests, logging
 from requests import URLRequired
 
+from logger_setup import logger
 
 
 def get_currency_exchange_rates(date: str, valcode: str = None, type: str = "json") -> Optional[List[Dict]]:
@@ -27,14 +28,14 @@ def get_currency_exchange_rates(date: str, valcode: str = None, type: str = "jso
 
         res = requests.get(url, params=params)
         res = res.json()
-        logging.info(f"Успішно отримано курс валюти {valcode} на дату {date}")
+        logger.info(f"Успішно отримано курс валюти {valcode} на дату {date}")
     except HTTPError as e:
-        logging.error("HTTP Error")
+        logger.error("HTTP Error")
     except ConnectionError as e:
-        logging.error("ConnectionError")
+        logger.error("ConnectionError")
     except URLRequired as e:
-        logging.error("URLRequired")
+        logger.error("URLRequired")
     except Exception as e:
-        logging.error(e)
+        logger.error(e)
     finally:
         return res

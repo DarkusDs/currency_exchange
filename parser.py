@@ -2,7 +2,7 @@ import argparse, logging
 from datetime import datetime
 
 from date_logic import validate_date
-
+from logger_setup import logger
 
 
 def parse_arguments():
@@ -25,8 +25,8 @@ def parse_arguments():
 
     if not validate_date(args.currency_date):
         print("Дата введена в неправильному форматі. Потрібен формат YYYYMMDD")
-        logging.error("Помилка при введенні дати, формат невірний")
+        logger.error("Помилка при введенні дати, формат невірний")
         exit()
 
-    logging.info("Парсинг аргументів завершено")
+    logger.info("Парсинг аргументів завершено")
     return parser.parse_args()
