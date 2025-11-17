@@ -1,41 +1,22 @@
 from typing import Optional, List, Dict
-from urllib.error import URLError, HTTPError
-import requests, logging
-from requests import URLRequired
-
 from logger_setup import logger
 
+from api.nbu import get_nbu_exchange_rates
+from api.privat import get_privat_exchange_rates
 
-def get_currency_exchange_rates(date: str, valcode: str = None, type: str = "json") -> Optional[List[Dict]]:
-    """
-    Send request for api and parse result
 
-    :param date:
-    :param valcode:
-    :param type:
-    :return:
-    """
-    res = None
-
+def get_currency_exchange_rates(bank: str, date: str, valcode: str = None) -> Optional[List[Dict]]:
+    bank_option = {
+        'nbu': get_nbu_exchange_rates,
+        'privat': get_privat_exchange_rates,
+    }
+    if not bank_option.get(bank):
+        logger.error(f"Невідомий банк: {bank}")
+        return None
     try:
-        url = 'https://bank.gov.ua/NBUStatService/v1/statdirectory/exchange'
-        params = {
-            'date': date,
-            'type': type
-        }
-        if valcode:
-            params['valcode'] = valcode
-
-        res = requests.get(url, params=params)
-        res = res.json()
-        logger.info(f"Успішно отримано курс валюти {valcode} на дату {date}")
-    except HTTPError as e:
-        logger.error("HTTP Error")
-    except ConnectionError as e:
-        logger.error("ConnectionError")
-    except URLRequired as e:
-        logger.error("URLRequired")
-    except Exception as e:
-        logger.error(e)
-    finally:
-        return res
+        data = bank_option.get(bank)(date=date, valcode=(valcode or None))
+        logger.info(f"Успішно отримано дані від банку: {bank}")
+        return data
+    except ValueError as e:
+        logger.error(f"Помилка при виконанні функції get_currency_exchange_rates, {e}")
+        return None
