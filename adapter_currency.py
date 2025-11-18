@@ -10,16 +10,18 @@ def unify_currency(bank: str):
             unified = []
             for i in data:
                 if bank == "nbu":
-                    name = i.get("txt")
+                    code = i.get("cc")
+                    name = i.get("txt") or code
                     rate = i.get("rate")
                 elif bank == "privat":
-                    name = i.get("currency")
+                    code = i.get("currency")
+                    name = i.get("currency") or code
                     rate = i.get("saleRate")
                 else:
                     logger.warning(f"Невідомий банк: {bank}")
                     continue
 
-                unified.append({"name": name, "rate": rate})
+                unified.append({"code": code, "name": name, "rate": rate})
             return unified
         return wrapper
     return unificator

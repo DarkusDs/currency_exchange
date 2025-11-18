@@ -27,27 +27,13 @@ def format_currency_data(data: Optional[List[dict]], date: datetime, bank: str, 
     if data is None or len(data) == 0:
         return []
 
-    if bank == 'nbu':
-        key_for_currency = 'cc'
-    elif bank == 'privat':
-        key_for_currency = 'currency'
+    filtered_data = currency_output_filter(data, valcode)
 
-    filtered_data = currency_output_filter(data, valcode, key_for_currency)
-
-    match bank:
-        case "nbu":
-            for i in filtered_data:
-                name = i.get('txt')
-                rate = i.get('rate')
-
-                currency = CurrencyRate(name=name, rate=rate, date=date)
-                currency_data.append(currency)
-        case "privat":
-            for i in filtered_data:
-                name = i.get('currency')
-                rate = i.get('saleRate')
-
-                currency = CurrencyRate(name=name, rate=rate, date=date)
-                currency_data.append(currency)
-
+    for i in filtered_data:
+        currency = CurrencyRate(
+            name=i['name'],
+            rate=i['rate'],
+            date=date,
+        )
+        currency_data.append(currency)
     return currency_data
