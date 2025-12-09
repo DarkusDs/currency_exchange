@@ -1,23 +1,20 @@
 services:
   app:
     build: .
-    image: currency-exchange
     container_name: currency-app
+    ports:
+      - "8080:8000"
     depends_on:
       - db
     environment:
       - DB_HOST=db
-      - DB_PORT=3306
       - DB_USER=currency_user
       - DB_PASSWORD=12345678
       - DB_NAME=currency_db
-    volumes:
-      - ./app.log:/app/app.log
 
   db:
     image: mysql:8.0
     container_name: currency-mysql
-    restart: unless-stopped
     environment:
       MYSQL_ROOT_PASSWORD: root12345
       MYSQL_DATABASE: currency_db

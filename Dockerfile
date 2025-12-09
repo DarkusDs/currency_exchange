@@ -1,11 +1,12 @@
 FROM python:3.12-slim
-RUN apt update
 
-RUN apt install -y --no-install-recommends curl gcc g++ gnupg unixodbc-dev unixodbc
+RUN apt-get update && apt-get install -y --no-install-recommends curl gcc g++ gnupg unixodbc-dev unixodbc
 
-# If using pyodbc and you need to build from source, you might also need:
-COPY requirements.txt requirements.txt
-RUN pip install -r requirements.txt
 WORKDIR /app
-COPY . /app
-ENTRYPOINT ["python", "main.py"]
+
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+COPY . .
+
+CMD ["uvicorn", "web:app", "--host", "0.0.0.0", "--port", "8000"]
