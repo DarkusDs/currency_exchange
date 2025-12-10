@@ -264,6 +264,8 @@ def update_rate(rate_id: int, update_data: RateUpdate):
 def delete_rate(rate_id: int):
     """
     function for manual delete existing rate in db
+    example command in terminal:
+    curl -X DELETE "http://localhost:8080/rates/157"
 
     :param rate_id:
     :return:
