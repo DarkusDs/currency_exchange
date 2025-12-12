@@ -110,7 +110,7 @@ def get_rates_from_api(
 
     date_obj = datetime.strptime(date_str, "%Y%m%d")
 
-    saved_count = create_exchange_rates(
+    create_exchange_rates(
         bank=bank,
         rates_data=raw_data,
         rate_date=date_obj.date(),
@@ -142,7 +142,6 @@ def get_rates_from_api(
         "bank": bank,
         "date": date_str,
         "requested_currency": vcc or "всі",
-        "saved_to_db": saved_count,
         "rates": rates_list
     }
 

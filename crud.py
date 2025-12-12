@@ -91,6 +91,7 @@ def read_exchange_rates(bank: Optional[str] = None, rate_date: Optional[date] = 
         sql = "SELECT * FROM exchange_rates WHERE 1=1"
         params = []
 
+
         if bank:
             sql += " AND bank = %s"
             params.append(bank)
