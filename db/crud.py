@@ -3,9 +3,9 @@ import uuid
 from typing import List, Dict, Optional
 import mysql.connector
 from mysql.connector import Error
-from datetime import datetime, date
+from datetime import date
 
-from logger_setup import logger
+from utils.logger_setup import logger
 
 def get_db_connection():
     """
@@ -15,7 +15,7 @@ def get_db_connection():
     """
     try:
         conn = mysql.connector.connect(
-            host=os.getenv("DB_HOST", "db"),
+            host=os.getenv("DB_HOST", ""),
             port=int(os.getenv("DB_PORT", 3306)),
             user=os.getenv("DB_USER", "currency_user"),
             password=os.getenv("DB_PASSWORD", "12345678"),
@@ -25,6 +25,7 @@ def get_db_connection():
     except Error as e:
         logger.error(f"Помилка підключення до БД: {e}")
         raise
+
 
 def create_exchange_rates(bank: str, rates_data: List[Dict], rate_date: date, request_id: Optional[str] = None):
     """

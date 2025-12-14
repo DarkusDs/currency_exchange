@@ -1,7 +1,8 @@
 from dataclasses import dataclass
 from datetime import datetime
-from typing import List, Optional
-from currency_output_filter import currency_output_filter
+from typing import List, Optional, Dict
+
+from utils.logger_setup import logger
 
 
 @dataclass
@@ -37,3 +38,23 @@ def format_currency_data(data: Optional[List[dict]], date: datetime, bank: str, 
         )
         currency_data.append(currency)
     return currency_data
+
+
+def currency_output_filter(data: List[dict], valcode: Optional[str]) -> List[Dict]:
+    """
+    the function returns a list of dictionaries that satisfy the filtering condition by key, i.e. by currency name
+
+    :param data:
+    :param valcode:
+    :param key_for_currency:
+    :return:
+    """
+    if not valcode:
+        return data
+    else:
+        filtered_data = []
+        for row in data:
+            if row.get("code", "") == valcode:
+                filtered_data.append(row)
+        logger.info(f"Виконано фільтурвання отриманого результату від API, для валюти: {valcode}")
+        return filtered_data

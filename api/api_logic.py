@@ -1,5 +1,5 @@
 from typing import Optional, List, Dict
-from logger_setup import logger
+from utils.logger_setup import logger
 
 from api.nbu import get_nbu_exchange_rates
 from api.privat import get_privat_exchange_rates

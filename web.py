@@ -1,4 +1,3 @@
-import os
 import uuid
 from datetime import datetime
 from typing import Optional, List
@@ -6,12 +5,13 @@ from typing import Optional, List
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 
-from api_logic import get_currency_exchange_rates
-from currency_output import format_currency_data, CurrencyRate
-from date_logic import validate_date
-from logger_setup import logger
+from api.api_logic import get_currency_exchange_rates
+from utils.currency_output import format_currency_data
+from utils.date_logic import validate_date
+from utils.logger_setup import logger
+from utils.date_logic import get_validated_date
 
-from crud import (
+from db.crud import (
     create_exchange_rates,
     read_exchange_rates,
     update_exchange_rate,
@@ -21,23 +21,6 @@ from crud import (
 app = FastAPI(
     title="Currency Exchange"
 )
-
-
-def get_valid_date(date_input: Optional[str]):
-    """
-    A function that accepts a date from the user and checks it; if there is no date, it returns the current date at the time of the request
-
-    :param date_input:
-    :return:
-    """
-    if not date_input:
-        logger.info("В запиті не отримано дату, автоматично підставлена актуальна дата")
-        return datetime.today().strftime("%Y%m%d")
-    if not validate_date(date_input):
-        logger.error("Запит містив дату в неправильному форматі. Очікуваний формат: YYYYMMDD")
-        raise HTTPException(status_code=400, detail="Неправильний формат дати. Очікується YYYYMMDD")
-    logger.info(f"Запит з датою: {date_input} пропущено далі")
-    return date_input
 
 
 class ManualRateCreate(BaseModel):
@@ -89,7 +72,7 @@ def get_rates_from_api(
     vcc: Optional[str] = None
 ):
     """
-    the function rotates the requested currency rates
+    the function return the requested currency rates
 
     :param bank: 'nbu' or 'privat', default: 'nbu'
     :param date:
@@ -97,7 +80,7 @@ def get_rates_from_api(
     :return:
     """
     request_id = str(uuid.uuid4())
-    date_str = get_valid_date(date)
+    date_str = get_validated_date(date)
 
     if bank not in ["nbu", "privat"]:
         logger.error(f"в запиті {request_id} було передано банк, що не підтримується")

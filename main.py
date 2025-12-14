@@ -1,10 +1,10 @@
 from datetime import datetime
 
-from api_logic import get_currency_exchange_rates
-from parser import parse_arguments
-from currency_output import format_currency_data
+from api.api_logic import get_currency_exchange_rates
+from utils.parser import parse_arguments
+from utils.currency_output import format_currency_data
 
-from logger_setup import logger
+from utils.logger_setup import logger
 from db.db import connect
 
 

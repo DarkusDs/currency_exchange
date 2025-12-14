@@ -1,8 +1,8 @@
-import argparse, logging
+import argparse
 from datetime import datetime
 
-from date_logic import validate_date
-from logger_setup import logger
+from utils.date_logic import validate_date
+from utils.logger_setup import logger
 from settings import SupportedApi
 
 def parse_arguments():

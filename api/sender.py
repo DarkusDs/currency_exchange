@@ -1,7 +1,7 @@
 from typing import Optional, Dict
 import requests
 from requests.exceptions import HTTPError
-from logger_setup import logger
+from utils.logger_setup import logger
 from requests import URLRequired
 
 
