@@ -23,5 +23,5 @@ if __name__ == '__main__':
         output = format_currency_data(res, datetime.strptime(args.currency_date, '%Y%m%d'), args.bank, args.vcc)
         for i in output:
             print(i)
-            print("-----")
+            print("-------")
 
