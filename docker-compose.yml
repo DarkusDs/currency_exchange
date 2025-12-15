@@ -25,5 +25,15 @@ services:
     volumes:
       - mysql-data:/var/lib/mysql
 
+  bot:
+    build: .
+    container_name: currency-telegram-bot
+    command: python -m telegram_bot.bot.py
+    environment:
+      - BOT_TOKEN=${BOT_TOKEN}
+    env_file:
+      - .env
+    restart: unless-stopped
+
 volumes:
   mysql-data:
