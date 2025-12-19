@@ -2,7 +2,9 @@ import argparse
 from datetime import datetime
 
 from utils.date_logic import validate_date
-from utils.logger_setup import logger
+from utils.logger_setup import get_logger
+
+logger = get_logger("SYSTEM")
 from settings import SupportedApi
 
 def parse_arguments():

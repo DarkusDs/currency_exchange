@@ -1,5 +1,7 @@
 from typing import Optional, List, Dict
-from utils.logger_setup import logger
+from utils.logger_setup import get_logger
+
+logger = get_logger("SYSTEM")
 
 from api.nbu import get_nbu_exchange_rates
 from api.privat import get_privat_exchange_rates

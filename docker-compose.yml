@@ -11,6 +11,8 @@ services:
       - DB_USER=currency_user
       - DB_PASSWORD=12345678
       - DB_NAME=currency_db
+    volumes:
+      - ./logs:/app/logs
 
   db:
     image: mysql:8.0
@@ -24,16 +26,30 @@ services:
       - "3306:3306"
     volumes:
       - mysql-data:/var/lib/mysql
+    healthcheck:
+      test: [ "CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "currency_user", "--password=12345678" ]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
 
   bot:
-    build: .
-    container_name: currency-telegram-bot
-    command: python -m telegram_bot.bot.py
-    environment:
-      - BOT_TOKEN=${BOT_TOKEN}
-    env_file:
-      - .env
-    restart: unless-stopped
+      build: .
+      container_name: currency-telegram-bot
+      command: python -m telegram_bot.bot.py
+      env_file:
+        - .env
+      environment:
+        - DB_HOST=db
+        - DB_USER=currency_user
+        - DB_PASSWORD=12345678
+        - DB_NAME=currency_db
+      depends_on:
+        db:
+          condition: service_healthy
+      restart: unless-stopped
+      volumes:
+        - ./logs:/app/logs
 
 volumes:
   mysql-data:

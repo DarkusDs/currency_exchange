@@ -1,6 +1,8 @@
 from datetime import datetime
 from typing import Optional, List, Dict
-from utils.logger_setup import logger
+from utils.logger_setup import get_logger
+
+logger = get_logger("SYSTEM")
 from utils.adapter_currency import unify_currency
 from .sender import _send_get_request
 

@@ -2,7 +2,9 @@ from dataclasses import dataclass
 from datetime import datetime
 from typing import List, Optional, Dict
 
-from utils.logger_setup import logger
+from utils.logger_setup import get_logger
+
+logger = get_logger("SYSTEM")
 
 
 @dataclass

@@ -4,8 +4,9 @@ from api.api_logic import get_currency_exchange_rates
 from utils.parser import parse_arguments
 from utils.currency_output import format_currency_data
 
-from utils.logger_setup import logger
 from db.db import connect
+from utils.logger_setup import get_logger
+logger = get_logger("CLI")
 
 
 if __name__ == '__main__':

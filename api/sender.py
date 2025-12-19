@@ -1,7 +1,9 @@
 from typing import Optional, Dict
 import requests
 from requests.exceptions import HTTPError
-from utils.logger_setup import logger
+from utils.logger_setup import get_logger
+
+logger = get_logger("SYSTEM")
 from requests import URLRequired
 
 

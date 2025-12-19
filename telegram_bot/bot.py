@@ -8,6 +8,12 @@ from api.api_logic import get_currency_exchange_rates
 from utils.currency_output import format_currency_data
 from utils.date_logic import get_validated_date
 
+from db.crud import create_exchange_rates
+from uuid import uuid4
+
+from utils.logger_setup import get_logger
+logger = get_logger("BOT")
+
 CURRENCY_NAMES_PRIVAT = {
     "USD": "Долар США",
     "EUR": "Євро",
@@ -53,6 +59,7 @@ def send_nbu_rates(message: telebot.types.Message):
         date = get_validated_date(date_param)
         date_object = datetime.strptime(date, "%Y%m%d")
         date_response = datetime.strftime(date_object, "%d-%m-%Y")
+        request_id = f"BOT_{uuid4().hex[:8]}"
         raw_data = get_currency_exchange_rates(bank="nbu", date=date, valcode=vcc_param)
         if not raw_data:
             bot.send_message(chat_id, "Не вдалося отримати курси")
@@ -71,6 +78,17 @@ def send_nbu_rates(message: telebot.types.Message):
 
             response_nbu += f"{code} - {name} - {rate} \n-----\n"
         bot.send_message(chat_id, response_nbu)
+        try:
+            create_exchange_rates(
+                bank="nbu",
+                rates_data=raw_data,
+                rate_date=date_object.date(),
+                request_id=request_id
+            )
+            logger.info(f"Курси збережено в базу (request_id: {request_id})")
+        except Exception as e:
+            logger.error(f"Помилка збереження НБУ в БД: {e}")
+            bot.send_message(chat_id, "Не вдалося зберегти в базу даних")
     except Exception as e:
         print(e)
 
@@ -95,6 +113,7 @@ def send_privat_rates(message: telebot.types.Message):
         date = get_validated_date(date_param)
         date_object = datetime.strptime(date, "%Y%m%d")
         date_response = datetime.strftime(date_object, "%d-%m-%Y")
+        request_id = f"BOT_{uuid4().hex[:8]}"
         raw_data = get_currency_exchange_rates(bank="privat", date=date, valcode=vcc_param)
         if not raw_data:
             bot.send_message(chat_id, "Не вдалося отримати курси")
@@ -111,6 +130,17 @@ def send_privat_rates(message: telebot.types.Message):
 
             response_privat += f"{code} - {name} - {rate} \n-----\n"
         bot.send_message(chat_id, response_privat)
+        try:
+            create_exchange_rates(
+                bank="privat",
+                rates_data=raw_data,
+                rate_date=date_object.date(),
+                request_id=request_id
+            )
+            logger.info(f"Курси збережено в базу (request_id: {request_id})")
+        except Exception as e:
+            logger.error(f"Помилка збереження ПриватБанку в БД: {e}")
+            bot.send_message(chat_id, "Не вдалося зберегти в базу даних")
     except Exception as e:
         print(e)
 

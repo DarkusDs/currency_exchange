@@ -5,7 +5,9 @@ import mysql.connector
 from mysql.connector import Error
 from datetime import date
 
-from utils.logger_setup import logger
+from utils.logger_setup import get_logger
+
+logger = get_logger("SYSTEM")
 
 def get_db_connection():
     """
@@ -60,12 +62,11 @@ def create_exchange_rates(bank: str, rates_data: List[Dict], rate_date: date, re
             if item.get("code") and item.get("rate") is not None
         ]
 
-        if not values:
-            return 0
-
         cursor.executemany(sql, values)
         conn.commit()
-
+        logger.info(
+            f"Збережено курси (bank: {bank}, date: {rate_date}, request_id: {request_id or 'None'})")
+        return True
     except Error as e:
         logger.error(f"Помилка створення записів у БД: {e}")
         raise
@@ -73,6 +74,7 @@ def create_exchange_rates(bank: str, rates_data: List[Dict], rate_date: date, re
         if conn and conn.is_connected():
             cursor.close()
             conn.close()
+
 
 def read_exchange_rates(bank: Optional[str] = None, rate_date: Optional[date] = None, code: Optional[str] = None, limit: int = 10) -> List[Dict]:
     """

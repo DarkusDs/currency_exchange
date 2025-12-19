@@ -8,7 +8,6 @@ from pydantic import BaseModel
 from api.api_logic import get_currency_exchange_rates
 from utils.currency_output import format_currency_data
 from utils.date_logic import validate_date
-from utils.logger_setup import logger
 from utils.date_logic import get_validated_date
 
 from db.crud import (
@@ -17,6 +16,9 @@ from db.crud import (
     update_exchange_rate,
     delete_exchange_rates
 )
+
+from utils.logger_setup import get_logger
+logger = get_logger("WEB")
 
 app = FastAPI(
     title="Currency Exchange"
@@ -79,7 +81,7 @@ def get_rates_from_api(
     :param vcc:
     :return:
     """
-    request_id = str(uuid.uuid4())
+    request_id = str(uuid.uuid4().hex[:8])
     date_str = get_validated_date(date)
 
     if bank not in ["nbu", "privat"]:
