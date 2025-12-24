@@ -1,8 +1,12 @@
+import os
 import uuid
+
+from settings import SECRET_KEY
+
 from datetime import datetime
 from typing import Optional, List
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Depends
 from pydantic import BaseModel
 
 from api.api_logic import get_currency_exchange_rates
@@ -14,8 +18,15 @@ from db.crud import (
     create_exchange_rates,
     read_exchange_rates,
     update_exchange_rate,
-    delete_exchange_rates
+    delete_exchange_rates, get_user_by_username, verify_password
 )
+
+from fastapi.security import OAuth2PasswordBearer
+from datetime import timedelta
+from api.auth import create_access_token, verify_token, oauth2_scheme, Token, User
+
+from db.crud import create_user
+from db.crud import hash_password
 
 from utils.logger_setup import get_logger
 logger = get_logger("WEB")
@@ -23,7 +34,6 @@ logger = get_logger("WEB")
 app = FastAPI(
     title="Currency Exchange"
 )
-
 
 class ManualRateCreate(BaseModel):
     """
@@ -57,6 +67,15 @@ class RateResponse(BaseModel):
     request_id: str
 
 
+class LoginRequest(BaseModel):
+    username: str
+    password: str
+
+
+class RegisterRequest(BaseModel):
+    username: str
+    password: str
+
 @app.get("/")
 def home():
     """
@@ -66,6 +85,38 @@ def home():
     """
     return {"message": "Currency Exchange API", "docs": "/docs"}
 
+
+@app.post("/register")
+def register(user: RegisterRequest):
+    if get_user_by_username(user.username):
+        raise HTTPException(status_code=400, detail="Username already registered")
+
+    hashed_password = hash_password(user.password)
+
+    create_user(user.username, hashed_password)
+
+    return {"message": "User registered successfully"}
+
+
+@app.post("/login", response_model=Token)
+def login(user: LoginRequest):
+    db_user = get_user_by_username(user.username)
+
+    if not db_user:
+        raise HTTPException(status_code=401, detail="Invalid credentials")
+
+    if not verify_password(user.password, db_user['hashed_password']):
+        raise HTTPException(status_code=401, detail="Invalid credentials")
+
+    access_token = create_access_token(data={"sub": user.username})
+    return {"access_token": access_token, "token_type": "bearer"}
+
+def get_current_user(token: str = Depends(oauth2_scheme)):
+    payload = verify_token(token)
+    username = payload.get("sub")
+    if username is None:
+        raise HTTPException(status_code=401, detail="Invalid credentials")
+    return username
 
 @app.get("/rates", response_model=dict)
 def get_rates_from_api(
@@ -133,6 +184,7 @@ def get_rates_from_api(
 
 @app.get("/rates/db", response_model=List[RateResponse])
 def get_rates_from_db(
+    current_user: str = Depends(get_current_user),
     bank: Optional[str] = None,
     date: Optional[str] = None,
     code: Optional[str] = None,
@@ -178,7 +230,7 @@ def get_rates_from_db(
 
 
 @app.post("/rates/manual", response_model=dict)
-def create_manual_rate(rate: ManualRateCreate):
+def create_manual_rate(rate: ManualRateCreate, current_user: str = Depends(get_current_user)):
     """
     function for manual adding new rate in db
     example command in terminal:
@@ -215,7 +267,7 @@ def create_manual_rate(rate: ManualRateCreate):
 
 
 @app.put("/rates/{rate_id}", response_model=dict)
-def update_rate(rate_id: int, update_data: RateUpdate):
+def update_rate(rate_id: int, update_data: RateUpdate, current_user: str = Depends(get_current_user)):
     """
     function for manual update existing rate in db
     example command in terminal:
@@ -245,7 +297,7 @@ def update_rate(rate_id: int, update_data: RateUpdate):
 
 
 @app.delete("/rates/{rate_id}", response_model=dict)
-def delete_rate(rate_id: int):
+def delete_rate(rate_id: int, current_user: str = Depends(get_current_user)):
     """
     function for manual delete existing rate in db
     example command in terminal:
@@ -260,3 +312,8 @@ def delete_rate(rate_id: int):
         raise HTTPException(status_code=404, detail="Запис не знайдено")
 
     return {"message": "Курс успішно видалено", "deleted_id": rate_id, "count": deleted}
+
+
+
+
+

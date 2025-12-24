@@ -4,29 +4,14 @@ from typing import List, Dict, Optional
 import mysql.connector
 from mysql.connector import Error
 from datetime import date
+import bcrypt
+
 
 from utils.logger_setup import get_logger
 
 logger = get_logger("SYSTEM")
 
-def get_db_connection():
-    """
-    function that connect to db
-
-    :return:
-    """
-    try:
-        conn = mysql.connector.connect(
-            host=os.getenv("DB_HOST", ""),
-            port=int(os.getenv("DB_PORT", 3306)),
-            user=os.getenv("DB_USER", "currency_user"),
-            password=os.getenv("DB_PASSWORD", "12345678"),
-            database=os.getenv("DB_NAME", "currency_db")
-        )
-        return conn
-    except Error as e:
-        logger.error(f"Помилка підключення до БД: {e}")
-        raise
+from db.connection import get_db_connection
 
 
 def create_exchange_rates(bank: str, rates_data: List[Dict], rate_date: date, request_id: Optional[str] = None):
@@ -225,3 +210,50 @@ def delete_exchange_rates(rate_id: Optional[int] = None, bank: Optional[str] = N
         if conn and conn.is_connected():
             cursor.close()
             conn.close()
+
+def create_user(username: str, hashed_password: str):
+    conn = None
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+
+        sql = "INSERT INTO users (username, hashed_password) VALUES (%s, %s)"
+        cursor.execute(sql, (username, hashed_password))
+        conn.commit()
+
+        return cursor.lastrowid
+    except Exception as e:
+        conn.rollback()
+        raise Exception(f"Error creating user in DB: {e}")
+    finally:
+        if conn:
+            cursor.close()
+            conn.close()
+
+def get_user_by_username(username: str):
+    conn = None
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor(dictionary=True)
+
+        sql = "SELECT * FROM users WHERE username = %s"
+        cursor.execute(sql, (username,))
+        user = cursor.fetchone()
+
+        if user:
+            return user
+        else:
+            return None
+    except Exception as e:
+        raise Exception(f"Користувач відсутній в базі: {e}")
+    finally:
+        if conn:
+            cursor.close()
+            conn.close()
+
+def hash_password(password: str) -> str:
+    return bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
+
+def verify_password(plain_password: str, hashed_password: str) -> bool:
+    return bcrypt.checkpw(plain_password.encode('utf-8'), hashed_password.encode('utf-8'))
+
