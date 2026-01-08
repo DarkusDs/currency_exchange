@@ -11,6 +11,8 @@ from utils.date_logic import get_validated_date
 from db.crud import create_exchange_rates
 from uuid import uuid4
 
+from utils.rabbitmq import send_save_task
+
 from utils.logger_setup import get_logger
 logger = get_logger("BOT")
 
@@ -79,10 +81,10 @@ def send_nbu_rates(message: telebot.types.Message):
             response_nbu += f"{code} - {name} - {rate} \n-----\n"
         bot.send_message(chat_id, response_nbu)
         try:
-            create_exchange_rates(
+            send_save_task(
                 bank="nbu",
                 rates_data=raw_data,
-                rate_date=date_object.date(),
+                rate_date=date_object.date().isoformat(),
                 request_id=request_id
             )
             logger.info(f"Курси збережено в базу (request_id: {request_id})")
@@ -131,10 +133,10 @@ def send_privat_rates(message: telebot.types.Message):
             response_privat += f"{code} - {name} - {rate} \n-----\n"
         bot.send_message(chat_id, response_privat)
         try:
-            create_exchange_rates(
+            send_save_task(
                 bank="privat",
                 rates_data=raw_data,
-                rate_date=date_object.date(),
+                rate_date=date_object.date().isoformat(),
                 request_id=request_id
             )
             logger.info(f"Курси збережено в базу (request_id: {request_id})")

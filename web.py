@@ -28,6 +28,8 @@ from api.auth import create_access_token, verify_token, oauth2_scheme, Token, Us
 from db.crud import create_user
 from db.crud import hash_password
 
+from utils.rabbitmq import send_save_task
+
 from utils.logger_setup import get_logger
 logger = get_logger("WEB")
 
@@ -146,10 +148,10 @@ def get_rates_from_api(
 
     date_obj = datetime.strptime(date_str, "%Y%m%d")
 
-    create_exchange_rates(
+    send_save_task(
         bank=bank,
         rates_data=raw_data,
-        rate_date=date_obj.date(),
+        rate_date=date_obj.date().isoformat(),
         request_id=request_id
     )
 

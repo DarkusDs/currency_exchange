@@ -68,9 +68,35 @@ services:
     restart: unless-stopped
     volumes:
       - ./logs:/app/logs
+    
+  rabbitmq:
+    image: rabbitmq:3-management
+    container_name: currency-rabbitmq
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    environment:
+      RABBITMQ_DEFAULT_USER: guest
+      RABBITMQ_DEFAULT_PASS: guest
+    volumes:
+      - rabbitmq-data:/var/lib/rabbitmq
+    
+  worker:
+    build: .
+    container_name: currency-rabbitmq-worker
+    command: python -m utils.rabbitmq start_worker
+    env_file:
+      - .env
+    depends_on:
+      - rabbitmq
+      - db
+    volumes:
+      - ./logs:/app/logs
+    restart: unless-stopped
 
 volumes:
   mysql-data:
+  rabbitmq-data:
 """
 
     with open(COMPOSE_FILE, "w", encoding="utf-8") as f:
@@ -90,7 +116,7 @@ def stop_compose():
 if __name__ == "__main__":
     import sys
     if len(sys.argv) < 2:
-        print("Використання: python manage_compose.py [start|stop]")
+        print("Використання: python manage_compose.py (start|stop)")
         sys.exit(1)
 
     command = sys.argv[1].lower()
