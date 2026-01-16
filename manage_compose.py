@@ -6,6 +6,7 @@ load_dotenv()
 
 COMPOSE_FILE = "docker-compose.yml"
 
+
 def generate_compose_file():
     db_host = os.getenv("DB_HOST")
     db_user = os.getenv("DB_USER")
@@ -31,6 +32,7 @@ services:
       - DB_NAME={db_name}
     volumes:
       - ./logs:/app/logs
+      - .:/app
 
   db:
     image: mysql:8.0
@@ -65,10 +67,13 @@ services:
     depends_on:
       db:
         condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
     restart: unless-stopped
     volumes:
       - ./logs:/app/logs
-    
+      - .:/app
+
   rabbitmq:
     image: rabbitmq:3-management
     container_name: currency-rabbitmq
@@ -80,41 +85,60 @@ services:
       RABBITMQ_DEFAULT_PASS: guest
     volumes:
       - rabbitmq-data:/var/lib/rabbitmq
-    
-  worker:
+    healthcheck:
+      test: ["CMD", "rabbitmqctl", "status"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+  request_worker:
     build: .
-    container_name: currency-rabbitmq-worker
-    command: python -m utils.rabbitmq start_worker
+    container_name: currency-request-worker
+    command: python workers/request_processor.py
     env_file:
       - .env
     depends_on:
-      - rabbitmq
-      - db
+      rabbitmq:
+        condition: service_healthy
     volumes:
-      - ./logs:/app/logs
+      - .:/app
     restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    container_name: currency-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
 
 volumes:
   mysql-data:
   rabbitmq-data:
+  redis-data:
 """
 
     with open(COMPOSE_FILE, "w", encoding="utf-8") as f:
         f.write(compose_template)
     print(f"Генеровано {COMPOSE_FILE}")
 
+
 def start_compose():
     generate_compose_file()
     subprocess.run(["docker-compose", "-f", COMPOSE_FILE, "up", "-d", "--build"], check=True)
     print("Docker-compose піднято")
+
 
 def stop_compose():
     subprocess.run(["docker-compose", "-f", COMPOSE_FILE, "down"], check=True)
     os.remove(COMPOSE_FILE)
     print("Docker-compose зупинено, файл видалено")
 
+
 if __name__ == "__main__":
     import sys
+
     if len(sys.argv) < 2:
         print("Використання: python manage_compose.py (start|stop)")
         sys.exit(1)
