@@ -85,7 +85,48 @@ def send_nbu_rates(message: telebot.types.Message):
         logger.exception(f"ПОМИЛКА в /nbu: {str(e)}")
         bot.send_message(chat_id, f"Щось пішло не так: {str(e)}")
 
+@bot.message_handler(commands=['privat'])
+def send_privat_rates(message: telebot.types.Message):
+    chat_id = message.chat.id
+    command_params = message.text.strip().split()
 
+    vcc_param = None
+    date_param = None
+
+    for p in command_params[1:]:
+        if len(p) == 8:
+            date_param = p
+        elif len(p) == 3:
+            vcc_param = p
+        else:
+            bot.send_message(chat_id, "Невірна форма вводу")
+
+    try:
+        date = get_validated_date(date_param)
+        request_id = f"BOT_{uuid4().hex[:8]}"
+        request = {
+            "task_type": "get_rates",
+            "bank": "privat",
+            "date": date,
+            "valcode": vcc_param,
+            "request_id": request_id
+        }
+
+        response = rpc_client.call(
+            routing_key="currency_requests",
+            request_body=request,
+            timeout=20.0
+        )
+
+        if response and isinstance(response, dict) and response.get("status") == "success":
+            bot.send_message(chat_id, response["text"])
+        else:
+            error_msg = response.get("error", "Не вдалося отримати курси") if isinstance(response, dict) else "помилка"
+            bot.send_message(chat_id, error_msg)
+
+    except Exception as e:
+        logger.exception(f"ПОМИЛКА в /nbu: {str(e)}")
+        bot.send_message(chat_id, f"Щось пішло не так: {str(e)}")
 
 # @bot.message_handler(commands=['privat'])
 # def send_privat_rates(message: telebot.types.Message):

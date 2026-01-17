@@ -24,6 +24,16 @@ def process_request(message: dict):
     date = message["date"]
     valcode = message.get("valcode")
     request_id = message["request_id"]
+
+    CURRENCY_NAMES_PRIVAT = {
+        "USD": "Долар США",
+        "EUR": "Євро",
+        "GBP": "Фунт стерлінгів",
+        "CHF": "Швейцарський франк",
+        "PLN": "Злотий",
+        "CZK": "Чеська крона",
+    }
+
     try:
         raw_data = get_currency_exchange_rates(bank=bank, date=date, valcode=valcode)
         if not raw_data:
@@ -33,16 +43,27 @@ def process_request(message: dict):
 
         formated_data = format_currency_data(raw_data, date_obj, bank, valcode)
 
+
+
         text = f"Курс валют на {date_response} ({bank.upper()}): \n---------------\n"
         for i in formated_data:
             rate = i.rate
+            if rate is None:
+                continue
             name = i.name
-            code = ""
+            code = name
             for c in raw_data:
                 if c.get("name") == name:
                     code = c.get('code')
                     break
-            text += f"{code} - {name} - {rate} \n-----\n"
+
+            if bank == "privat":
+                display_name = CURRENCY_NAMES_PRIVAT.get(code, name)
+            else:
+                display_name = name
+
+
+            text += f"{code} - {display_name} - {rate} \n-----\n"
         PublisherRabbitMQ().send(
             {
                 "task_type": "save_rates",

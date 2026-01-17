@@ -13,6 +13,10 @@ def generate_compose_file():
     db_password = os.getenv("DB_PASSWORD")
     db_name = os.getenv("DB_NAME")
     mysql_root_password = os.getenv("MYSQL_ROOT_PASSWORD")
+    redis_host = os.getenv("REDIS_HOST")
+    redis_password = os.getenv("REDIS_PASSWORD")
+    redis_port = os.getenv("REDIS_PORT")
+    redis_databases = os.getenv("REDIS_DATABASES")
 
     compose_template = f"""
 services:
@@ -106,10 +110,18 @@ services:
     restart: unless-stopped
 
   redis:
-    image: redis:7-alpine
+    image: redis:alpine
     container_name: currency-redis
+    restart: always
     ports:
       - "6379:6379"
+    env_file:
+      - .env
+    environment:
+      - REDIS_HOST={redis_host}
+      - REDIS_PASSWORD={redis_password}
+      - REDIS_DATABASES={redis_databases}
+      - REDIS_PORT={redis_port}
     volumes:
       - redis-data:/data
 
