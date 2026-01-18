@@ -185,43 +185,6 @@ def get_rates_from_api(
 
     return result
 
-    #
-    # raw_data = get_currency_exchange_rates(bank=bank, date=date_str, valcode=vcc)
-    # if not raw_data:
-    #     logger.error(f"За запитом {request_id} не вдалося отримати курс валют")
-    #     raise HTTPException(status_code=404, detail="Курси валют не знайдено")
-    #
-    # date_obj = datetime.strptime(date_str, "%Y%m%d")
-    #
-    #
-    # formatted_rates = format_currency_data(raw_data, date_obj, bank, vcc)
-    #
-    # rates_list = []
-    #
-    # for i in formatted_rates:
-    #     found_code = None
-    #     for item in raw_data:
-    #         if item.get("name") == i.name:
-    #             found_code = item.get("code")
-    #             break
-    #
-    #     currency_info = {
-    #         "name": i.name,
-    #         "code": found_code,
-    #         "rate": i.rate,
-    #         "date": i.date.strftime("%Y-%m-%d")
-    #     }
-    #     rates_list.append(currency_info)
-    #
-    #
-    # return {
-    #     "request_id": request_id,
-    #     "bank": bank,
-    #     "date": date_str,
-    #     "requested_currency": vcc or "всі",
-    #     "rates": rates_list
-    # }
-
 
 @app.get("/rates/db", response_model=List[RateResponse])
 def get_rates_from_db(
