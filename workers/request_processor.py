@@ -14,6 +14,8 @@ from utils.currency_output import format_currency_data
 from datetime import datetime
 from utils.logger_setup import get_logger
 
+from utils.settings import QUEUE_REQUEST_NAME, QUEUE_DB_SAVE_NAME
+
 logger = get_logger("REQUEST_PROCESSOR")
 
 def process_request(message: dict):
@@ -43,6 +45,11 @@ def process_request(message: dict):
 
         formated_data = format_currency_data(raw_data, date_obj, bank, valcode)
 
+        rates_list = []
+        for i in formated_data:
+            rate = i.rate
+            if rate is None:
+                continue
 
 
         text = f"Курс валют на {date_response} ({bank.upper()}): \n---------------\n"
@@ -51,17 +58,23 @@ def process_request(message: dict):
             if rate is None:
                 continue
             name = i.name
-            code = name
+            code = None
             for c in raw_data:
-                if c.get("name") == name:
+                if c.get("name") == i.name:
                     code = c.get('code')
                     break
 
-            if bank == "privat":
-                display_name = CURRENCY_NAMES_PRIVAT.get(code, name)
+            if bank == "privat" and code:
+                display_name = CURRENCY_NAMES_PRIVAT.get(code, i.name)
             else:
-                display_name = name
+                display_name = i.name
 
+            rates_list.append({
+                "name": display_name,
+                "code": code,
+                "rate": rate,
+                "date": i.date.strftime("%Y-%m-%d"),
+            })
 
             text += f"{code} - {display_name} - {rate} \n-----\n"
         PublisherRabbitMQ().send(
@@ -72,13 +85,17 @@ def process_request(message: dict):
                 "rate_date": date_obj.date().isoformat(),
                 "request_id": request_id
             },
-            queue_name="currency_save_tasks"
+            queue_name=QUEUE_DB_SAVE_NAME
         )
 
         return {
             "status": "success",
             "request_id": request_id,
-            "text": text
+            "text": text,
+            "bank": bank,
+            "date": date,
+            "requested_currency": valcode or "всі",
+            "rates": rates_list
         }
 
     except Exception as e:
@@ -90,5 +107,5 @@ def process_request(message: dict):
         }
 
 if __name__ == "__main__":
-    consumer = ConsumerRPCRabbitMQ(queue_name="currency_requests")
+    consumer = ConsumerRPCRabbitMQ(queue_name=QUEUE_REQUEST_NAME)
     consumer.start(process_request)
