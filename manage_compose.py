@@ -161,7 +161,7 @@ def build_compose():
         ["docker-compose", "-f", COMPOSE_FILE, "build"],
         check=True
     )
-    print("Docker image app спішно перебілджено")
+    print("Docker успішно перебілджено")
 
 def start_compose():
     """

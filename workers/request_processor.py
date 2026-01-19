@@ -15,6 +15,7 @@ from datetime import datetime
 from utils.logger_setup import get_logger
 
 from utils.settings import QUEUE_REQUEST_NAME, QUEUE_DB_SAVE_NAME
+from utils.currency_names import get_display_name
 
 logger = get_logger("REQUEST_PROCESSOR")
 
@@ -27,14 +28,14 @@ def process_request(message: dict):
     valcode = message.get("valcode")
     request_id = message["request_id"]
 
-    CURRENCY_NAMES_PRIVAT = {
-        "USD": "Долар США",
-        "EUR": "Євро",
-        "GBP": "Фунт стерлінгів",
-        "CHF": "Швейцарський франк",
-        "PLN": "Злотий",
-        "CZK": "Чеська крона",
-    }
+    # CURRENCY_NAMES_PRIVAT = {
+    #     "USD": "Долар США",
+    #     "EUR": "Євро",
+    #     "GBP": "Фунт стерлінгів",
+    #     "CHF": "Швейцарський франк",
+    #     "PLN": "Злотий",
+    #     "CZK": "Чеська крона",
+    # }
 
     try:
         raw_data = get_currency_exchange_rates(bank=bank, date=date, valcode=valcode)
@@ -64,10 +65,14 @@ def process_request(message: dict):
                     code = c.get('code')
                     break
 
-            if bank == "privat" and code:
-                display_name = CURRENCY_NAMES_PRIVAT.get(code, i.name)
-            else:
-                display_name = i.name
+
+
+            # if bank == "privat" and code:
+            #     display_name = CURRENCY_NAMES_PRIVAT.get(code, i.name)
+            # else:
+            #     display_name = i.name
+
+            display_name = get_display_name(code, i.name)
 
             rates_list.append({
                 "name": display_name,
