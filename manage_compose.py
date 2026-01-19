@@ -1,5 +1,7 @@
 import os
 import subprocess
+import sys
+
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -135,30 +137,89 @@ volumes:
         f.write(compose_template)
     print(f"Генеровано {COMPOSE_FILE}")
 
+def up_compose():
+    """
+    Створить docker-compose і підніме сервіси
+
+    :return:
+    """
+    generate_compose_file()
+    subprocess.run(
+        ["docker-compose", "-f", COMPOSE_FILE, "up", "-d"],
+        check=True
+    )
+    print("Docker-compose успішно піднято")
+
+def build_compose():
+    """
+    Перебілджує сервіси
+
+    :return:
+    """
+    generate_compose_file()
+    subprocess.run(
+        ["docker-compose", "-f", COMPOSE_FILE, "build"],
+        check=True
+    )
+    print("Docker image app спішно перебілджено")
 
 def start_compose():
-    generate_compose_file()
-    subprocess.run(["docker-compose", "-f", COMPOSE_FILE, "up", "-d", "--build"], check=True)
-    print("Docker-compose піднято")
+    """
+    Для запуску вже створених контейнерів
 
+    :return:
+    """
+    subprocess.run(
+        ["docker-compose", "-f", COMPOSE_FILE, "start"],
+        check=True
+    )
+    print("Docker-compose успішно запущено")
 
 def stop_compose():
-    subprocess.run(["docker-compose", "-f", COMPOSE_FILE, "down"], check=True)
-    os.remove(COMPOSE_FILE)
-    print("Docker-compose зупинено, файл видалено")
+    """
+    Зупиняє контейнери не видаляючи їх
 
+    :return:
+    """
+    subprocess.run(
+        ["docker-compose", "-f", COMPOSE_FILE, "stop"],
+        check=True
+    )
+    print("Docker-compose успішно зупинено")
+
+def down_compose():
+    """
+    Повністю зупиняє і видаляє все
+
+    :return:
+    """
+    subprocess.run(
+        ["docker-compose", "-f", COMPOSE_FILE, "down"],
+        check=True
+    )
+    if os.path.exists(COMPOSE_FILE):
+        os.remove(COMPOSE_FILE)
+
+    print("Docker-compose успішно зупинено і файл видалено")
 
 if __name__ == "__main__":
-    import sys
-
     if len(sys.argv) < 2:
-        print("Використання: python manage_compose.py (start|stop)")
+        print("Використання: python manage_compose.py (up/build/start/stop/down)")
         sys.exit(1)
 
     command = sys.argv[1].lower()
-    if command == "start":
+
+    if command == "up":
+        up_compose()
+    elif command == "build":
+        build_compose()
+    elif command == "start":
         start_compose()
     elif command == "stop":
         stop_compose()
+    elif command == "down":
+        down_compose()
     else:
         print("Невідома команда")
+
+
