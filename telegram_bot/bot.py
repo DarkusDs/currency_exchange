@@ -75,10 +75,12 @@ def send_nbu_rates(message: telebot.types.Message):
             timeout=20.0
         )
 
+
+
         if response and isinstance(response, dict) and response.get("status") == "success":
             bot.send_message(chat_id, response["text"])
         else:
-            error_msg = response.get("error", "Не вдалося отримати курси") if isinstance(response, dict) else "помилка"
+            error_msg = response.get("Не вдалося отримати курси") if isinstance(response, dict) else "помилка"
             bot.send_message(chat_id, error_msg)
 
     except Exception as e:
@@ -121,7 +123,7 @@ def send_privat_rates(message: telebot.types.Message):
         if response and isinstance(response, dict) and response.get("status") == "success":
             bot.send_message(chat_id, response["text"])
         else:
-            error_msg = response.get("error", "Не вдалося отримати курси") if isinstance(response, dict) else "помилка"
+            error_msg = response.get("Не вдалося отримати курси") if isinstance(response, dict) else "помилка"
             bot.send_message(chat_id, error_msg)
 
     except Exception as e:
