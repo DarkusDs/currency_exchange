@@ -111,6 +111,22 @@ services:
       - .:/app
     restart: unless-stopped
 
+  save_worker:
+    build: .
+    container_name: currency-save-worker
+    command: python workers/save_worker.py
+    env_file:
+      - .env
+    depends_on:
+      db:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    volumes:
+      - .:/app
+      - ./logs:/app/logs
+    restart: unless-stopped
+      
   redis:
     image: redis:alpine
     container_name: currency-redis

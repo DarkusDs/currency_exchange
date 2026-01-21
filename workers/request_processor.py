@@ -28,15 +28,6 @@ def process_request(message: dict):
     valcode = message.get("valcode")
     request_id = message["request_id"]
 
-    # CURRENCY_NAMES_PRIVAT = {
-    #     "USD": "Долар США",
-    #     "EUR": "Євро",
-    #     "GBP": "Фунт стерлінгів",
-    #     "CHF": "Швейцарський франк",
-    #     "PLN": "Злотий",
-    #     "CZK": "Чеська крона",
-    # }
-
     try:
         raw_data = get_currency_exchange_rates(bank=bank, date=date, valcode=valcode)
         if not raw_data:
@@ -65,12 +56,6 @@ def process_request(message: dict):
                     code = c.get('code')
                     break
 
-
-
-            # if bank == "privat" and code:
-            #     display_name = CURRENCY_NAMES_PRIVAT.get(code, i.name)
-            # else:
-            #     display_name = i.name
 
             display_name = get_display_name(code, i.name)
 
