@@ -4,8 +4,6 @@ import sys
 import pika
 from datetime import date
 
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
-
 from utils.rabbitmq import ConsumerRabbitMQ
 from db.crud import create_exchange_rates
 from utils.settings import QUEUE_DB_SAVE_NAME

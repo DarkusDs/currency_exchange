@@ -101,7 +101,7 @@ services:
   request_worker:
     build: .
     container_name: currency-request-worker
-    command: python workers/request_processor.py
+    command: python -m workers.request_processor
     env_file:
       - .env
     depends_on:
@@ -114,7 +114,7 @@ services:
   save_worker:
     build: .
     container_name: currency-save-worker
-    command: python workers/save_worker.py
+    command: python -m workers.save_worker
     env_file:
       - .env
     depends_on:
