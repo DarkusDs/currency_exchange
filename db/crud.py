@@ -1,11 +1,8 @@
-import os
 import uuid
 from typing import List, Dict, Optional
-import mysql.connector
 from mysql.connector import Error
 from datetime import date
 import bcrypt
-
 
 from utils.logger_setup import get_logger
 
@@ -16,13 +13,13 @@ from db.connection import get_db_connection
 
 def create_exchange_rates(bank: str, rates_data: List[Dict], rate_date: date, request_id: Optional[str] = None):
     """
-    The function saves all received exchange rates from one bank for a specific date in a MySQL database, adding a unique query ID to each record
+    Saves a batch of exchange rates for a specific bank and date into the database, assigning a unique request identifier to all records
 
-    :param bank:
-    :param rates_data:
-    :param rate_date:
-    :param request_id:
-    :return:
+    :param bank: Bank identifier (e.g. "nbu", "privat")
+    :param rates_data: List of unified currency rate dictionaries to be stored
+    :param rate_date: Date for which the exchange rates apply
+    :param request_id: Optional request identifier; generated automatically if not provided
+    :return: True if records were inserted successfully, or 0 if no data was provided
     """
     if not rates_data:
         return 0
@@ -50,26 +47,25 @@ def create_exchange_rates(bank: str, rates_data: List[Dict], rate_date: date, re
         cursor.executemany(sql, values)
         conn.commit()
         logger.info(
-            f"Збережено курси (bank: {bank}, date: {rate_date}, request_id: {request_id or 'None'})")
+            f"Saved rates (bank: {bank}, date: {rate_date}, request_id: {request_id or 'None'})")
         return True
     except Error as e:
-        logger.error(f"Помилка створення записів у БД: {e}")
+        logger.error(f"Error creating records in the database: {e}")
         raise
     finally:
         if conn and conn.is_connected():
             cursor.close()
             conn.close()
 
-
 def read_exchange_rates(bank: Optional[str] = None, rate_date: Optional[date] = None, code: Optional[str] = None, limit: int = 10) -> List[Dict]:
     """
-    The function extracts the required exchange rates from the database (with filters by bank, date and currency code) and returns them as a list of dictionaries
+    Retrieves exchange rate records from the database using optional filtering and result limiting
 
-    :param bank:
-    :param rate_date:
-    :param code:
-    :param limit:
-    :return:
+    :param bank: Optional bank identifier to filter results
+    :param rate_date: Optional date to filter exchange rates
+    :param code: Optional currency code to filter results
+    :param limit: Maximum number of records to return
+    :return: A list of exchange rate records represented as dictionaries
     """
     conn = None
     try:
@@ -95,11 +91,11 @@ def read_exchange_rates(bank: Optional[str] = None, rate_date: Optional[date] = 
 
         cursor.execute(sql, params)
         results = cursor.fetchall()
-        logger.info(f"Успішно прочитано {len(results)} записів з БД")
+        logger.info(f"Successfully read {len(results)} records from the database")
         return results
 
     except Error as e:
-        logger.error(f"Помилка читання з БД: {e}")
+        logger.error(f"Error reading from database: {e}")
         raise
     finally:
         if conn and conn.is_connected():
@@ -108,18 +104,18 @@ def read_exchange_rates(bank: Optional[str] = None, rate_date: Optional[date] = 
 
 def update_exchange_rate(rate_id: Optional[int] = None, bank: Optional[str] = None, code: Optional[str] = None, rate_date: Optional[date] = None, new_rate: float = None, new_name: Optional[str] = None) -> bool:
     """
-    The function updates the rate or currency name in the database either by id or by a unique combination of bank + code + rate_date
+    Updates an existing exchange rate record identified by ID or by bank, currency code, and date
 
-    :param rate_id:
-    :param bank:
-    :param code:
-    :param rate_date:
-    :param new_rate:
-    :param new_name:
-    :return:
+    :param rate_id: Optional unique identifier of the exchange rate record
+    :param bank: Bank identifier used for composite lookup
+    :param code: Currency code used for composite lookup
+    :param rate_date: Date used for composite lookup
+    :param new_rate: New exchange rate value to be set
+    :param new_name: New currency name to be set
+    :return: True if the record was updated successfully, otherwise False
     """
     if not (rate_id or (bank and code and rate_date)):
-        logger.error("Для оновлення потрібен ID або комбінація bank + code + rate_date")
+        logger.error("To update, you need an ID or a combination of bank + code + rate_date")
         return False
 
     conn = None
@@ -139,7 +135,7 @@ def update_exchange_rate(rate_id: Optional[int] = None, bank: Optional[str] = No
             params.append(new_name)
 
         if not updates:
-            logger.warning("Немає даних для оновлення")
+            logger.warning("No data available for update")
             return False
 
         sql += ",".join(updates) + " WHERE 1=1"
@@ -155,11 +151,11 @@ def update_exchange_rate(rate_id: Optional[int] = None, bank: Optional[str] = No
         conn.commit()
         updated = cursor.rowcount > 0
         if updated:
-            logger.info(f"Успішно оновлено запис (ID: {rate_id or 'по фільтру'})")
+            logger.info(f"Record successfully updated (ID: {rate_id or 'by filter'})")
         return updated
 
     except Error as e:
-        logger.error(f"Помилка оновлення в БД: {e}")
+        logger.error(f"Database update error: {e}")
         raise
     finally:
         if conn and conn.is_connected():
@@ -168,13 +164,13 @@ def update_exchange_rate(rate_id: Optional[int] = None, bank: Optional[str] = No
 
 def delete_exchange_rates(rate_id: Optional[int] = None, bank: Optional[str] = None, rate_date: Optional[date] = None, code: Optional[str] = None):
     """
-    The function deletes one or many records from the database using any combination of filters (id, bank, date, code)
+    Deletes one or more exchange rate records from the database using flexible filter criteria
 
-    :param rate_id:
-    :param bank:
-    :param rate_date:
-    :param code:
-    :return:
+    :param rate_id: Optional unique identifier of the exchange rate record
+    :param bank: Optional bank identifier to filter records
+    :param rate_date: Optional date to filter records
+    :param code: Optional currency code to filter records
+    :return: Number of deleted records
     """
     conn = None
     try:
@@ -200,11 +196,11 @@ def delete_exchange_rates(rate_id: Optional[int] = None, bank: Optional[str] = N
         cursor.execute(sql, params)
         conn.commit()
         deleted_count = cursor.rowcount
-        logger.info(f"Успішно видалено {deleted_count} записів з БД")
+        logger.info(f"{deleted_count} records successfully deleted from the database")
         return deleted_count
 
     except Error as e:
-        logger.error(f"Помилка видалення з БД: {e}")
+        logger.error(f"Error deleting from database: {e}")
         raise
     finally:
         if conn and conn.is_connected():
@@ -212,6 +208,13 @@ def delete_exchange_rates(rate_id: Optional[int] = None, bank: Optional[str] = N
             conn.close()
 
 def create_user(username: str, hashed_password: str):
+    """
+    Creates a new user record in the database with a pre-hashed password
+
+    :param username: Username of the new user
+    :param hashed_password: Securely hashed user password
+    :return: Identifier of the newly created user record
+    """
     conn = None
     try:
         conn = get_db_connection()
@@ -231,6 +234,12 @@ def create_user(username: str, hashed_password: str):
             conn.close()
 
 def get_user_by_username(username: str):
+    """
+    Retrieves a user record from the database by username
+
+    :param username: Username to search for
+    :return: User record as a dictionary, or None if the user does not exist
+    """
     conn = None
     try:
         conn = get_db_connection()
@@ -252,8 +261,21 @@ def get_user_by_username(username: str):
             conn.close()
 
 def hash_password(password: str) -> str:
+    """
+    Generates a secure bcrypt hash from a plain-text password
+
+    :param password: Plain-text password provided by the user
+    :return: Hashed password string suitable for database storage
+    """
     return bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:
+    """
+    Verifies a plain-text password against a stored bcrypt hash
+
+    :param plain_password: Plain-text password provided by the user
+    :param hashed_password: Stored bcrypt-hashed password
+    :return: True if the password matches the hash, otherwise False
+    """
     return bcrypt.checkpw(plain_password.encode('utf-8'), hashed_password.encode('utf-8'))
 

@@ -1,7 +1,4 @@
-import os
 import uuid
-
-from settings import SECRET_KEY
 
 from datetime import datetime
 from typing import Optional, List
@@ -22,9 +19,7 @@ from db.crud import (
     delete_exchange_rates, get_user_by_username, verify_password
 )
 
-from fastapi.security import OAuth2PasswordBearer
-from datetime import timedelta
-from api.auth import create_access_token, get_current_user, authenticate_user, Token
+from api.auth import get_current_user
 
 from db.crud import create_user
 from db.crud import hash_password
@@ -109,17 +104,6 @@ def login(form_data: OAuth2PasswordRequestForm = Depends()):
     access_token = create_access_token(data={"sub": form_data.username})
     return {"access_token": access_token, "token_type": "bearer"}
 
-    # db_user = get_user_by_username(user.username)
-    #
-    # if not db_user:
-    #     raise HTTPException(status_code=401, detail="Invalid credentials")
-    #
-    # if not verify_password(user.password, db_user['hashed_password']):
-    #     raise HTTPException(status_code=401, detail="Invalid credentials")
-    #
-    # access_token = create_access_token(data={"sub": user.username})
-    # return {"access_token": access_token, "token_type": "bearer"}
-
 
 
 @app.get("/rates", response_model=dict)
@@ -140,7 +124,7 @@ def get_rates_from_api(
     date_str = get_validated_date(date)
 
     if bank not in ["nbu", "privat"]:
-        logger.error(f"в запиті {request_id} було передано банк, що не підтримується")
+        logger.error(f"The request {request_id} contained an unsupported bank")
         raise HTTPException(status_code=400, detail="Банк має бути 'nbu' або 'privat'")
 
     rpc = PublisherRPCRabbitMQ()
@@ -160,15 +144,15 @@ def get_rates_from_api(
     )
 
     if response is None:
-        logger.error(f"Помилка таймауту, або недоступності воркеру. request_id={request_id}")
+        logger.error(f"Timeout error or worker unavailability. request_id={request_id}")
         raise HTTPException(status_code=504, detail="RPC timeout")
 
     if not isinstance(response, dict):
-        logger.error(f"Некоректна відповідь воркера {response}")
+        logger.error(f"Incorrect response from the worker {response}")
         raise HTTPException(status_code=502, detail="Некоректна відповідь воркера")
 
     if response.get("status") != "success":
-        logger.error(f"Воркер повернув помилку обробки запиту")
+        logger.error(f"Worker returned a request processing error")
 
 
 
@@ -208,7 +192,7 @@ def get_rates_from_db(
     rate_date_obj = None
     if date:
         if not validate_date(date):
-            logger.error("Запит містив дату в неправильному форматі. Очікуваний формат: YYYYMMDD")
+            logger.error("The request contained a date in the wrong format. Expected format: YYYYMMDD")
             raise HTTPException(status_code=400, detail="Невірний формат дати")
         rate_date_obj = datetime.strptime(date, "%Y%m%d").date()
 
@@ -266,7 +250,7 @@ def create_manual_rate(rate: ManualRateCreate, current_user: str = Depends(get_c
     )
 
     if inserted == 0:
-        logger.error("Не вдалося зберегти курс в базу даних")
+        logger.error("Failed to save the course to the database")
         raise HTTPException(status_code=500, detail="Не вдалося зберегти курс")
 
     return {"message": "Курс успішно додано"}
@@ -286,7 +270,7 @@ def update_rate(rate_id: int, update_data: RateUpdate, current_user: str = Depen
     :return:
     """
     if not update_data.rate and not update_data.name:
-        logger.error("В запиті не було передано а ні rate а ні name, оновлення неможливе")
+        logger.error("Neither rate nor name was transmitted in the request; update is not possible")
         raise HTTPException(status_code=400, detail="Для оновлення необхідно вказати rate або name або обидва")
 
     success = update_exchange_rate(
@@ -296,7 +280,7 @@ def update_rate(rate_id: int, update_data: RateUpdate, current_user: str = Depen
     )
 
     if not success:
-        logger.error("Не вдалося оновити курс")
+        logger.error("Failed to update the exchange rate")
         raise HTTPException(status_code=404, detail="Запис не знайдено або не оновлено")
 
     return {"message": "Курс успішно оновлено", "rate_id": rate_id}
@@ -314,7 +298,7 @@ def delete_rate(rate_id: int, current_user: str = Depends(get_current_user)):
     """
     deleted = delete_exchange_rates(rate_id=rate_id)
     if deleted == 0:
-        logger.error("Запиту з вказаним id не існує, помилка видалення")
+        logger.error("The query with the specified ID does not exist, deletion error")
         raise HTTPException(status_code=404, detail="Запис не знайдено")
 
     return {"message": "Курс успішно видалено", "deleted_id": rate_id, "count": deleted}

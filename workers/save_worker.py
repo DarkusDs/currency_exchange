@@ -1,7 +1,3 @@
-import os
-import json
-import sys
-import pika
 from datetime import date
 
 from utils.rabbitmq import ConsumerRabbitMQ
@@ -12,9 +8,17 @@ from utils.logger_setup import get_logger
 logger = get_logger("SAVE_WORKER")
 
 def handle_save_task(message: dict, ch, method):
+    """
+    Handles a single database save task by validating the message payload and storing exchange rates into the database
+
+    :param message: Message payload containing exchange rate data and metadata
+    :param ch: RabbitMQ channel used to acknowledge the message
+    :param method: Delivery metadata required for manual message acknowledgment
+    :return: None
+    """
     try:
         if not isinstance(message, dict):
-            logger.error(f"Замість очікуваного dict ми отримали: {type(message)}")
+            logger.error(f"Instead of the expected dict, we got: {type(message)}")
             raise ValueError("Очікувалось отримати dict, отримали: {type(message)}")
 
         if message.get("task_type") != "save_rates":
@@ -34,11 +38,11 @@ def handle_save_task(message: dict, ch, method):
             request_id=request_id,
         )
 
-        logger.info(f"Дані успішно збережені в базу: bank={bank}, rate_date={rate_date_str}, request_id={request_id}")
+        logger.info(f"Data successfully saved to database: bank={bank}, rate_date={rate_date_str}, request_id={request_id}")
         ch.basic_ack(delivery_tag=method.delivery_tag)
 
     except Exception as e:
-        logger.error(f"Помилка збереження до бази даних: {e}")
+        logger.error(f"Error saving to database: {e}")
         ch.basic_ack(delivery_tag=method.delivery_tag, requeue=True)
 
 if __name__ == "__main__":

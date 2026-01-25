@@ -1,11 +1,10 @@
-import mysql.connector
-import pyodbc
-import os
-
 from db.connection import get_db_connection
 
 
 def connect():
+    """
+    Establishes a test connection to the database and prints a small sample of exchange rate records
+    """
     try:
         cursor = get_db_connection().cursor()
         cursor.execute("SELECT COUNT(*) FROM exchange_rates")

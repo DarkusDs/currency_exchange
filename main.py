@@ -1,17 +1,17 @@
-from datetime import datetime
-
-from api.api_logic import get_currency_exchange_rates
 from utils.parser import parse_arguments
-from utils.currency_output import format_currency_data
 from utils.rabbitmq import PublisherRPCRabbitMQ
 from utils.settings import QUEUE_REQUEST_NAME
 from uuid import uuid4
 
-from db.db import connect
 from utils.logger_setup import get_logger
 logger = get_logger("CLI")
 
 def main():
+    """
+    Parses CLI arguments, sends an RPC request for currency rates, and displays the response in a human-readable format
+
+    :return:
+    """
     args = parse_arguments()
     bank = args.bank
     date = args.currency_date
@@ -38,11 +38,11 @@ def main():
         return
 
     if not isinstance(response, dict):
-        logger.error(f"Некоректна відповідь воркеру: {response}")
+        logger.error(f"Incorrect response to the worker: {response}")
         return
 
     if response.get("status") != "success":
-        logger.error("Помилка обробки запиту")
+        logger.error("Request processing error")
         return
 
     text = response.get("text", "")
@@ -60,20 +60,4 @@ def main():
 
 if __name__ == '__main__':
     main()
-
-    # connect()
-    # # req_id = str(uuid.uuid4())
-    # args = parse_arguments()
-    # vcc = args.vcc if args.vcc else None
-    # res = get_currency_exchange_rates(bank=args.bank, valcode=vcc, date=args.currency_date)
-    #
-    # if res is None:
-    #     logger.error("Помилка при обробці. res порожній")
-    #     print("Error with request")
-    # else:
-    #     logger.info(f"Запрошений курс валюти {res}")
-    #     output = format_currency_data(res, datetime.strptime(args.currency_date, '%Y%m%d'), args.bank, args.vcc)
-    #     for i in output:
-    #         print(i)
-    #         print("-------")
 

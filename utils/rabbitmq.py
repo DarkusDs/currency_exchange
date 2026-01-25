@@ -3,22 +3,32 @@ import uuid
 import time
 import json
 import pika
-from typing import Dict, Any, Optional
+from typing import Optional
 
 from utils.logger_setup import get_logger
-from db.crud import create_exchange_rates
 
 logger = get_logger("RABBITMQ")
 
 
 class PublisherRabbitMQ:
     """
-    Універсальний паблішер
+    Simple RabbitMQ publisher that sends JSON messages to a specified queue
     """
     def __init__(self):
+        """
+        Initializes the publisher using the RabbitMQ host from environment variables
+        """
         self.host = os.getenv("RABBITMQ_HOST", "rabbitmq")
 
     def send(self, message: dict, queue_name: str, durable: bool = True):
+        """
+        Publishes a JSON-encoded message to the given queue with optional durability
+
+        :param message: Message payload to be serialized as JSON
+        :param queue_name: Target queue name to publish into
+        :param durable: If True, declares the queue as durable and uses persistent delivery mode
+        :return: None
+        """
         try:
             connection = pika.BlockingConnection(
                 pika.ConnectionParameters(host=self.host)
@@ -36,18 +46,21 @@ class PublisherRabbitMQ:
                 properties=pika.BasicProperties(delivery_mode=2)
             )
 
-            logger.info(f"Повідомлення надіслано в чергу '{queue_name}': {message}")
+            logger.info(f"Message sent to queue '{queue_name}': {message}")
             connection.close()
 
         except Exception as e:
-            logger.error(f"Помилка надсилання: {e}")
+            logger.error(f"Sending error: {e}")
             raise
 
 class ConsumerRabbitMQ:
     """
-    Універсальний консюмер
+    Generic RabbitMQ consumer that listens to a queue and processes messages via a callback
     """
     def __init__(self):
+        """
+        Initializes the consumer using the RabbitMQ host from environment variables
+        """
         self.host = os.getenv("RABBITMQ_HOST", "rabbitmq")
 
     def start(
@@ -58,6 +71,16 @@ class ConsumerRabbitMQ:
         prefetch_count: int = 1,
         auto_ack: bool = False
     ):
+        """
+        Starts consuming messages from a queue and passes each decoded JSON payload to the provided callback
+
+        :param queue_name: Queue name to consume from
+        :param callback: Function invoked for each message (message, channel, method)
+        :param durable: If True, declares the queue as durable
+        :param prefetch_count: Max number of unacked messages delivered to the consumer at once
+        :param auto_ack: If True, messages are acknowledged automatically; otherwise manual ack is used
+        :return: None
+        """
         try:
             connection = pika.BlockingConnection(
                 pika.ConnectionParameters(host=self.host)
@@ -83,7 +106,7 @@ class ConsumerRabbitMQ:
                 auto_ack=auto_ack
             )
 
-            logger.info(f"Слухач запущено на черзі '{queue_name}'")
+            logger.info(f"Listener started on queue '{queue_name}'")
             channel.start_consuming()
 
         except Exception as e:
@@ -94,19 +117,38 @@ class ConsumerRabbitMQ:
 
 class PublisherRPCRabbitMQ:
     """
-    Паблішер + rpc
+    RPC client over RabbitMQ that sends a request and waits for a correlated JSON response
     """
 
     def __init__(self, host: Optional[str] = None):
+        """
+        Creates an RPC client with an optional explicit host override
+
+        :param host: Optional RabbitMQ host; if None, environment variable is used
+        :return: None
+        """
         self._host = host
 
     @property
     def host(self):
+        """
+        Resolves and returns the RabbitMQ host from configuration or environment
+
+        :return: RabbitMQ host string
+        """
         if self._host is None:
             self._host = os.getenv("RABBITMQ_HOST", "rabbitmq")
         return self._host
 
     def call(self, routing_key: str, request_body: dict, timeout: float = 30.0):
+        """
+        Sends an RPC request to the given routing key and waits for a JSON response until timeout
+
+        :param routing_key: Target queue/routing key for the RPC request
+        :param request_body: Request payload to be serialized as JSON
+        :param timeout: Max time to wait for the correlated response (seconds)
+        :return: Response dictionary on success, or None on timeout/error
+        """
         connection = None
         try:
             connection = pika.BlockingConnection(
@@ -121,13 +163,14 @@ class PublisherRPCRabbitMQ:
             response = None
 
             def on_response(ch, method, props, body):
+
                 nonlocal response
                 if corr_id == props.correlation_id:
                     try:
                         decoded = body.decode('utf-8')
                         response = json.loads(decoded)
                     except Exception as e:
-                        logger.error(f"Помилка розпарсингу: {e}")
+                        logger.error(f"Parsing error: {e}")
                         response = {"status": "error", "error": str(e)}
 
             channel.basic_consume(
@@ -148,19 +191,19 @@ class PublisherRPCRabbitMQ:
                 body=body
             )
 
-            logger.info(f"Надіслано запит до '{routing_key}'")
+            logger.info(f"Request sent to '{routing_key}'")
 
             start = time.time()
             while response is None:
                 connection.process_data_events(time_limit=0.1)
                 if time.time() - start > timeout:
-                    logger.warning(f"RPC таймаут після {timeout} секунд")
+                    logger.warning(f"RPC timeout after {timeout} seconds")
                     return None
 
             return response
 
         except Exception as e:
-            logger.error(f"Помилка RPC: {e}")
+            logger.error(f"RPC Error: {e}")
             return None
         finally:
             if connection:
@@ -169,13 +212,25 @@ class PublisherRPCRabbitMQ:
 
 class ConsumerRPCRabbitMQ:
     """
-    Консюмер + rpc
+    RPC server over RabbitMQ that processes requests via a callback and replies to the provided reply_to queue
     """
     def __init__(self, queue_name: str, host="rabbitmq"):
+        """
+        Initializes the RPC consumer for a specific queue and RabbitMQ host
+
+        :param queue_name: Queue name to listen for RPC requests
+        :param host: RabbitMQ host name
+        """
         self.queue_name = queue_name
         self.host = host
 
     def start(self, callback):
+        """
+        Starts the RPC server loop, passing each decoded request to the callback and publishing its result as a reply
+
+        :param callback: Function that accepts a request dict and returns a response dict
+        :return: None
+        """
         connection = pika.BlockingConnection(pika.ConnectionParameters(host=self.host))
         channel = connection.channel()
 
@@ -195,9 +250,9 @@ class ConsumerRPCRabbitMQ:
                 )
                 ch.basic_ack(delivery_tag=method.delivery_tag)
             except Exception as e:
-                logger.error(f"Помилка RPC: {e}")
+                logger.error(f"RPC error: {e}")
                 ch.basic_nack(delivery_tag=method.delivery_tag, requeue=False)
 
         channel.basic_consume(queue=self.queue_name, on_message_callback=on_request)
-        logger.info(f"RPC сервер запущено на {self.queue_name}")
+        logger.info(f"RPC server started on {self.queue_name}")
         channel.start_consuming()
