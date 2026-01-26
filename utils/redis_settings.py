@@ -8,6 +8,9 @@ logger = get_logger("REDIS")
 
 @dataclasses.dataclass
 class RedisConfig:
+    """
+    Configuration container for Redis connection parameters
+    """
     host: str = "redis"
     port: int = 6379
     db: int = 0
@@ -15,12 +18,25 @@ class RedisConfig:
 
 
 class Redis:
+    """
+    Redis client wrapper that lazily initializes a single connection and provides basic cache operations.
+    """
     _client = None
     def __init__(self, cfg: RedisConfig):
+        """
+        Initializes the Redis wrapper with the provided configuration
+
+        :param cfg: RedisConfig instance with connection settings
+        """
         self.cfg = cfg
 
     @property
     def client(self):
+        """
+        Returns a singleton Redis client instance, creating it on first access
+
+        :return: Initialized redis.Redis client
+        """
         host = self.cfg.host
         port = self.cfg.port
         db = self.cfg.db
@@ -38,32 +54,32 @@ class Redis:
 
     def set_value(self, key: str, value, ttl: int = 60):
         """
-        Function saves value to cache
+        Stores a JSON-serialized value in Redis with a specified time-to-live
 
-        :param key:
-        :param value:
-        :param ttl: time to live cached data in seconds
+        :param key: Cache key under which the value will be stored
+        :param value: Python object to be serialized and cached
+        :param ttl: Cache lifetime in seconds
         :return:
         """
         try:
             self.client.setex(key, ttl, json.dumps(value))
-            logger.info("Дані збережено до кешу")
+            logger.info("Data saved to cache")
         except Exception as e:
-            logger.error(f"Не вдалося зберегти дані до кешу: {e}")
+            logger.error(f"Failed to save data to cache: {e}")
 
     def get_value(self, key: str):
         """
-        Function gets value from cache
+        Retrieves a cached value from Redis by key
 
-        :param key:
-        :return:
+        :param key: Cache key to retrieve
+        :return: Cached value as a string, or None if not found or on error
         """
         try:
             result = self.client.get(key)
             logger.info(f"result={str(result)}")
-            logger.info("Дані отримано з кешу")
+            logger.info("Data obtained from cache")
             return result
         except Exception as e:
-            logger.error(f"Не вдалося отримати дані з кешу: {e}")
+            logger.error(f"Unable to retrieve data from cache: {e}")
             return None
 

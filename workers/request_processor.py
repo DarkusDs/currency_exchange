@@ -1,9 +1,3 @@
-import sys
-import os
-
-import json
-
-import pika
 
 from utils.rabbitmq import ConsumerRPCRabbitMQ
 from utils.rabbitmq import PublisherRabbitMQ
@@ -18,6 +12,12 @@ from utils.currency_names import get_display_name
 logger = get_logger("REQUEST_PROCESSOR")
 
 def process_request(message: dict):
+    """
+    Processes an incoming RPC request for currency rates, fetches data from the API layer, formats the response, and sends a persistence task to the database queue
+
+    :param message: RPC request payload containing bank, date, optional currency code, and request ID
+    :return: Response dictionary with status, formatted text, and structured rate data
+    """
     if message.get("task_type") != "get_rates":
         return {"status": "error", "error": "Невідомий тип задачі"}
 
@@ -87,7 +87,7 @@ def process_request(message: dict):
         }
 
     except Exception as e:
-        logger.error(f"Помилка обробки запиту {request_id}: {e}")
+        logger.error(f"Request processing error {request_id}: {e}")
         return {
             "status": "error",
             "request_id": request_id,

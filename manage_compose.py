@@ -10,6 +10,11 @@ COMPOSE_FILE = "docker-compose.yml"
 
 
 def generate_compose_file():
+    """
+    Generates a docker-compose.yml file dynamically using environment variables
+
+    :return:
+    """
     db_host = os.getenv("DB_HOST")
     db_user = os.getenv("DB_USER")
     db_password = os.getenv("DB_PASSWORD")
@@ -155,7 +160,7 @@ volumes:
 
 def up_compose():
     """
-    Створить docker-compose і підніме сервіси
+    Generates the compose file and starts all services in detached mode
 
     :return:
     """
@@ -168,7 +173,7 @@ def up_compose():
 
 def build_compose():
     """
-    Перебілджує сервіси
+    Builds Docker images for all services defined in the compose file
 
     :return:
     """
@@ -181,7 +186,7 @@ def build_compose():
 
 def start_compose():
     """
-    Для запуску вже створених контейнерів
+    Starts previously created containers without rebuilding them
 
     :return:
     """
@@ -193,7 +198,7 @@ def start_compose():
 
 def stop_compose():
     """
-    Зупиняє контейнери не видаляючи їх
+    Stops running containers without removing them
 
     :return:
     """
@@ -205,7 +210,7 @@ def stop_compose():
 
 def down_compose():
     """
-    Повністю зупиняє і видаляє все
+    Stops and removes all containers, networks, and the generated compose file
 
     :return:
     """

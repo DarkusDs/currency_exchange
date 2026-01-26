@@ -57,9 +57,9 @@ def sample_function(date, valcode=None):
     """
     Creating fake function for imitation raw data returning from nbu
 
-    :param date:
-    :param valcode:
-    :return:
+    :param date: Any date string used to match the decorator signature
+    :param valcode: Optional currency code parameter (not used in this mock)
+    :return: List of dictionaries imitating the raw NBU response structure
     """
     return [
         {"txt": "Долар США", "cc": "USD", "rate": 42.2721},
@@ -82,7 +82,7 @@ def test_get_nbu_exchange_rates(mock_request):
     """
     Function checks if get_nbu_exchange_rates() works in correct way after receiving nbu exchange rates
 
-    :param mock_request:
+    :param mock_request: Mocked _send_get_request function returning a predefined payload
     :return:
     """
     mock_request.return_value = [
@@ -100,7 +100,7 @@ def test_get_privat_exchange_rates(mock_request):
     """
     Function checks if get_privat_exchange_rates() works in correct way after receiving privat exchange rates
 
-    :param mock_request:
+    :param mock_request: Mocked _send_get_request function returning a predefined payload
     :return:
     """
     mock_request.return_value = {

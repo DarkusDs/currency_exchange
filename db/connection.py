@@ -7,6 +7,12 @@ logger = get_logger("SYSTEM")
 
 load_dotenv()
 def get_db_connection():
+    """
+    Establishes and returns a connection to the MySQL database using environment variables.
+    Logs connection errors and raises an exception if the connection cannot be created
+
+    :return: An active MySQL database connection object
+    """
     try:
         conn = mysql.connector.connect(
             host=os.getenv("DB_HOST"),
@@ -17,5 +23,5 @@ def get_db_connection():
         )
         return conn
     except Error as e:
-        logger.error(f"Помилка підключення до БД: {e}")
+        logger.error(f"Error connecting to the database: {e}")
         raise

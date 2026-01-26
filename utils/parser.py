@@ -8,9 +8,9 @@ logger = get_logger("SYSTEM")
 
 def parse_arguments():
     """
-    Parse command line arguments
+    Parses and validates command-line arguments for the CLI currency exchange tool
 
-    :return:
+    :return: Namespace object containing validated CLI arguments (bank, currency_date, vcc)
     """
     parser = argparse.ArgumentParser(description='Currency Exchange')
     parser.add_argument('--vcc',
@@ -31,8 +31,8 @@ def parse_arguments():
 
     if not validate_date(args.currency_date):
         print("Дата введена в неправильному форматі. Потрібен формат YYYYMMDD")
-        logger.error("Помилка при введенні дати, формат невірний")
+        logger.error("Error entering date, format is incorrect")
         exit()
 
-    logger.info(f"Завершено парсинг аргументів: {args}")
+    logger.info(f"Argument parsing completed: {args}")
     return parser.parse_args()
