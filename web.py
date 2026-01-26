@@ -9,10 +9,11 @@ from typing import Optional, List
 from fastapi import FastAPI, HTTPException, Depends
 from pydantic import BaseModel
 
-from api.api_logic import get_currency_exchange_rates
-from utils.currency_output import format_currency_data
 from utils.date_logic import validate_date
 from utils.date_logic import get_validated_date
+
+from utils.rabbitmq import PublisherRPCRabbitMQ
+from utils.settings import QUEUE_REQUEST_NAME
 
 from db.crud import (
     create_exchange_rates,
@@ -27,6 +28,7 @@ from api.auth import create_access_token, verify_token, oauth2_scheme, Token, Us
 
 from db.crud import create_user
 from db.crud import hash_password
+
 
 from utils.logger_setup import get_logger
 logger = get_logger("WEB")
@@ -139,47 +141,49 @@ def get_rates_from_api(
         logger.error(f"в запиті {request_id} було передано банк, що не підтримується")
         raise HTTPException(status_code=400, detail="Банк має бути 'nbu' або 'privat'")
 
-    raw_data = get_currency_exchange_rates(bank=bank, date=date_str, valcode=vcc)
-    if not raw_data:
-        logger.error(f"За запитом {request_id} не вдалося отримати курс валют")
-        raise HTTPException(status_code=404, detail="Курси валют не знайдено")
+    rpc = PublisherRPCRabbitMQ()
 
-    date_obj = datetime.strptime(date_str, "%Y%m%d")
+    request = {
+        "task_type": "get_rates",
+        "bank": bank,
+        "date": date_str,
+        "valcode": vcc,
+        "request_id": f"WEB_{request_id}",
+    }
 
-    create_exchange_rates(
-        bank=bank,
-        rates_data=raw_data,
-        rate_date=date_obj.date(),
-        request_id=request_id
+    response = rpc.call(
+        routing_key=QUEUE_REQUEST_NAME,
+        request_body=request,
+        timeout=20.0
     )
 
-    formatted_rates = format_currency_data(raw_data, date_obj, bank, vcc)
+    if response is None:
+        logger.error(f"Помилка таймауту, або недоступності воркеру. request_id={request_id}")
+        raise HTTPException(status_code=504, detail="RPC timeout")
 
-    rates_list = []
+    if not isinstance(response, dict):
+        logger.error(f"Некоректна відповідь воркера {response}")
+        raise HTTPException(status_code=502, detail="Некоректна відповідь воркера")
 
-    for i in formatted_rates:
-        found_code = None
-        for item in raw_data:
-            if item.get("name") == i.name:
-                found_code = item.get("code")
-                break
-
-        currency_info = {
-            "name": i.name,
-            "code": found_code,
-            "rate": i.rate,
-            "date": i.date.strftime("%Y-%m-%d")
-        }
-        rates_list.append(currency_info)
+    if response.get("status") != "success":
+        logger.error(f"Воркер повернув помилку обробки запиту")
 
 
-    return {
+
+    result = {
         "request_id": request_id,
         "bank": bank,
         "date": date_str,
         "requested_currency": vcc or "всі",
-        "rates": rates_list
+        "text": response.get("text", "")
     }
+
+    if "rates" in response:
+        result["rates"] = response["rates"]
+    else:
+        result["rates"] = []
+
+    return result
 
 
 @app.get("/rates/db", response_model=List[RateResponse])

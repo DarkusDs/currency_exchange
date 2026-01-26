@@ -1,15 +1,18 @@
 import os
 from datetime import datetime
 
+import pika
 import telebot
 from dotenv import load_dotenv
 
-from api.api_logic import get_currency_exchange_rates
 from utils.currency_output import format_currency_data
 from utils.date_logic import get_validated_date
 
-from db.crud import create_exchange_rates
 from uuid import uuid4
+
+from utils.rabbitmq import PublisherRPCRabbitMQ
+
+rpc_client = PublisherRPCRabbitMQ()
 
 from utils.logger_setup import get_logger
 logger = get_logger("BOT")
@@ -35,7 +38,7 @@ def send_welcome(message: telebot.types.Message):
 @bot.message_handler(commands=['help'])
 def send_help(message: telebot.types.Message):
     bot.reply_to(message, "Наші команди: \n"
-                          "\n/help - короткий перелік всіх програм"
+                          "\n/help - короткий перелік всіх команд"
                           "\n/nbu - вивід курсу всіх валют на цей день від НБУ, через пробіл можна по бажанню додати як параметри код валюти та дату в форматі YYYYMMDD, розділяючи пробілом"
                           "\n/privat - вивід курсу всіх валют на цей день від ПриватБанку, через пробіл можна по бажанню додати як параметри код валюти та дату в форматі YYYYMMDD, розділяючи пробілом")
 
@@ -57,40 +60,30 @@ def send_nbu_rates(message: telebot.types.Message):
 
     try:
         date = get_validated_date(date_param)
-        date_object = datetime.strptime(date, "%Y%m%d")
-        date_response = datetime.strftime(date_object, "%d-%m-%Y")
         request_id = f"BOT_{uuid4().hex[:8]}"
-        raw_data = get_currency_exchange_rates(bank="nbu", date=date, valcode=vcc_param)
-        if not raw_data:
-            bot.send_message(chat_id, "Не вдалося отримати курси")
-            return
-        formated_data = format_currency_data(raw_data, date_object, 'nbu', vcc_param)
-        response_nbu = f"Курс валют на {date_response}: \n---------------\n"
-        for i in formated_data:
-            rate = i.rate
-            name = i.name
+        request = {
+            "task_type": "get_rates",
+            "bank": "nbu",
+            "date": date,
+            "valcode": vcc_param,
+            "request_id": request_id
+        }
 
-            code = ""
-            for c in raw_data:
-                if c.get("name") == i.name:
-                    code = c.get('code')
-                    break
+        response = rpc_client.call(
+            routing_key="currency_requests",
+            request_body=request,
+            timeout=20.0
+        )
 
-            response_nbu += f"{code} - {name} - {rate} \n-----\n"
-        bot.send_message(chat_id, response_nbu)
-        try:
-            create_exchange_rates(
-                bank="nbu",
-                rates_data=raw_data,
-                rate_date=date_object.date(),
-                request_id=request_id
-            )
-            logger.info(f"Курси збережено в базу (request_id: {request_id})")
-        except Exception as e:
-            logger.error(f"Помилка збереження НБУ в БД: {e}")
-            bot.send_message(chat_id, "Не вдалося зберегти в базу даних")
+        if response and isinstance(response, dict) and response.get("status") == "success":
+            bot.send_message(chat_id, response["text"])
+        else:
+            error_msg = response.get("error", "Не вдалося отримати курси") if isinstance(response, dict) else "помилка"
+            bot.send_message(chat_id, error_msg)
+
     except Exception as e:
-        print(e)
+        logger.exception(f"ПОМИЛКА в /nbu: {str(e)}")
+        bot.send_message(chat_id, f"Щось пішло не так: {str(e)}")
 
 @bot.message_handler(commands=['privat'])
 def send_privat_rates(message: telebot.types.Message):
@@ -108,40 +101,32 @@ def send_privat_rates(message: telebot.types.Message):
         else:
             bot.send_message(chat_id, "Невірна форма вводу")
 
-
     try:
         date = get_validated_date(date_param)
-        date_object = datetime.strptime(date, "%Y%m%d")
-        date_response = datetime.strftime(date_object, "%d-%m-%Y")
         request_id = f"BOT_{uuid4().hex[:8]}"
-        raw_data = get_currency_exchange_rates(bank="privat", date=date, valcode=vcc_param)
-        if not raw_data:
-            bot.send_message(chat_id, "Не вдалося отримати курси")
-            return
+        request = {
+            "task_type": "get_rates",
+            "bank": "privat",
+            "date": date,
+            "valcode": vcc_param,
+            "request_id": request_id
+        }
 
-        formated_data = format_currency_data(raw_data, date_object, 'privat', vcc_param)
-        response_privat = f"Курс валют на {date_response}: \n---------------\n"
-        for item in formated_data:
-            code = item.name
-            rate = item.rate
-            name = CURRENCY_NAMES_PRIVAT.get(code)
-            if rate is None:
-                continue
+        response = rpc_client.call(
+            routing_key="currency_requests",
+            request_body=request,
+            timeout=20.0
+        )
 
-            response_privat += f"{code} - {name} - {rate} \n-----\n"
-        bot.send_message(chat_id, response_privat)
-        try:
-            create_exchange_rates(
-                bank="privat",
-                rates_data=raw_data,
-                rate_date=date_object.date(),
-                request_id=request_id
-            )
-            logger.info(f"Курси збережено в базу (request_id: {request_id})")
-        except Exception as e:
-            logger.error(f"Помилка збереження ПриватБанку в БД: {e}")
-            bot.send_message(chat_id, "Не вдалося зберегти в базу даних")
+        if response and isinstance(response, dict) and response.get("status") == "success":
+            bot.send_message(chat_id, response["text"])
+        else:
+            error_msg = response.get("error", "Не вдалося отримати курси") if isinstance(response, dict) else "помилка"
+            bot.send_message(chat_id, error_msg)
+
     except Exception as e:
-        print(e)
+        logger.exception(f"ПОМИЛКА в /nbu: {str(e)}")
+        bot.send_message(chat_id, f"Щось пішло не так: {str(e)}")
+
 
 bot.polling(none_stop=True, interval=0)
