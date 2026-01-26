@@ -64,6 +64,10 @@ def send_help(message: telebot.types.Message):
 def send_nbu_rates(message: telebot.types.Message):
     chat_id = message.chat.id
     token = get_token(chat_id)
+    if not token:
+        bot.send_message(chat_id, "Підвяжіть токен")
+        return
+
     command_params = message.text.strip().split()
 
     vcc_param = None
@@ -110,6 +114,9 @@ def send_nbu_rates(message: telebot.types.Message):
 def send_privat_rates(message: telebot.types.Message):
     chat_id = message.chat.id
     token = get_token(chat_id)
+    if not token:
+        bot.send_message(chat_id, "Підвяжіть токен")
+        return
     command_params = message.text.strip().split()
 
     vcc_param = None
