@@ -24,7 +24,7 @@ from db.crud import (
 
 from fastapi.security import OAuth2PasswordBearer
 from datetime import timedelta
-from api.auth import create_access_token, verify_token, oauth2_scheme, Token, User
+from api.auth import create_access_token, get_current_user, authenticate_user, Token
 
 from db.crud import create_user
 from db.crud import hash_password
@@ -99,26 +99,28 @@ def register(user: RegisterRequest):
 
     return {"message": "User registered successfully"}
 
+from fastapi.security import OAuth2PasswordRequestForm
+from api.auth import create_access_token, Token, authenticate_user
 
 @app.post("/login", response_model=Token)
-def login(user: LoginRequest):
-    db_user = get_user_by_username(user.username)
-
-    if not db_user:
+def login(form_data: OAuth2PasswordRequestForm = Depends()):
+    if not authenticate_user(form_data.username, form_data.password):
         raise HTTPException(status_code=401, detail="Invalid credentials")
-
-    if not verify_password(user.password, db_user['hashed_password']):
-        raise HTTPException(status_code=401, detail="Invalid credentials")
-
-    access_token = create_access_token(data={"sub": user.username})
+    access_token = create_access_token(data={"sub": form_data.username})
     return {"access_token": access_token, "token_type": "bearer"}
 
-def get_current_user(token: str = Depends(oauth2_scheme)):
-    payload = verify_token(token)
-    username = payload.get("sub")
-    if username is None:
-        raise HTTPException(status_code=401, detail="Invalid credentials")
-    return username
+    # db_user = get_user_by_username(user.username)
+    #
+    # if not db_user:
+    #     raise HTTPException(status_code=401, detail="Invalid credentials")
+    #
+    # if not verify_password(user.password, db_user['hashed_password']):
+    #     raise HTTPException(status_code=401, detail="Invalid credentials")
+    #
+    # access_token = create_access_token(data={"sub": user.username})
+    # return {"access_token": access_token, "token_type": "bearer"}
+
+
 
 @app.get("/rates", response_model=dict)
 def get_rates_from_api(
