@@ -1,7 +1,4 @@
-import os
 import uuid
-
-from settings import SECRET_KEY
 
 from datetime import datetime
 from typing import Optional, List
@@ -9,10 +6,11 @@ from typing import Optional, List
 from fastapi import FastAPI, HTTPException, Depends
 from pydantic import BaseModel
 
-from api.api_logic import get_currency_exchange_rates
-from utils.currency_output import format_currency_data
 from utils.date_logic import validate_date
 from utils.date_logic import get_validated_date
+
+from utils.rabbitmq import PublisherRPCRabbitMQ
+from utils.settings import QUEUE_REQUEST_NAME
 
 from db.crud import (
     create_exchange_rates,
@@ -21,14 +19,11 @@ from db.crud import (
     delete_exchange_rates, get_user_by_username, verify_password
 )
 
-from fastapi.security import OAuth2PasswordBearer
-from datetime import timedelta
-from api.auth import create_access_token, verify_token, oauth2_scheme, Token, User
+from api.auth import get_current_user
 
 from db.crud import create_user
 from db.crud import hash_password
 
-from utils.rabbitmq import send_save_task
 
 from utils.logger_setup import get_logger
 logger = get_logger("WEB")
@@ -99,26 +94,17 @@ def register(user: RegisterRequest):
 
     return {"message": "User registered successfully"}
 
+from fastapi.security import OAuth2PasswordRequestForm
+from api.auth import create_access_token, Token, authenticate_user
 
 @app.post("/login", response_model=Token)
-def login(user: LoginRequest):
-    db_user = get_user_by_username(user.username)
-
-    if not db_user:
+def login(form_data: OAuth2PasswordRequestForm = Depends()):
+    if not authenticate_user(form_data.username, form_data.password):
         raise HTTPException(status_code=401, detail="Invalid credentials")
-
-    if not verify_password(user.password, db_user['hashed_password']):
-        raise HTTPException(status_code=401, detail="Invalid credentials")
-
-    access_token = create_access_token(data={"sub": user.username})
+    access_token = create_access_token(data={"sub": form_data.username})
     return {"access_token": access_token, "token_type": "bearer"}
 
-def get_current_user(token: str = Depends(oauth2_scheme)):
-    payload = verify_token(token)
-    username = payload.get("sub")
-    if username is None:
-        raise HTTPException(status_code=401, detail="Invalid credentials")
-    return username
+
 
 @app.get("/rates", response_model=dict)
 def get_rates_from_api(
@@ -138,50 +124,52 @@ def get_rates_from_api(
     date_str = get_validated_date(date)
 
     if bank not in ["nbu", "privat"]:
-        logger.error(f"в запиті {request_id} було передано банк, що не підтримується")
+        logger.error(f"The request {request_id} contained an unsupported bank")
         raise HTTPException(status_code=400, detail="Банк має бути 'nbu' або 'privat'")
 
-    raw_data = get_currency_exchange_rates(bank=bank, date=date_str, valcode=vcc)
-    if not raw_data:
-        logger.error(f"За запитом {request_id} не вдалося отримати курс валют")
-        raise HTTPException(status_code=404, detail="Курси валют не знайдено")
+    rpc = PublisherRPCRabbitMQ()
 
-    date_obj = datetime.strptime(date_str, "%Y%m%d")
+    request = {
+        "task_type": "get_rates",
+        "bank": bank,
+        "date": date_str,
+        "valcode": vcc,
+        "request_id": f"WEB_{request_id}",
+    }
 
-    send_save_task(
-        bank=bank,
-        rates_data=raw_data,
-        rate_date=date_obj.date().isoformat(),
-        request_id=request_id
+    response = rpc.call(
+        routing_key=QUEUE_REQUEST_NAME,
+        request_body=request,
+        timeout=20.0
     )
 
-    formatted_rates = format_currency_data(raw_data, date_obj, bank, vcc)
+    if response is None:
+        logger.error(f"Timeout error or worker unavailability. request_id={request_id}")
+        raise HTTPException(status_code=504, detail="RPC timeout")
 
-    rates_list = []
+    if not isinstance(response, dict):
+        logger.error(f"Incorrect response from the worker {response}")
+        raise HTTPException(status_code=502, detail="Некоректна відповідь воркера")
 
-    for i in formatted_rates:
-        found_code = None
-        for item in raw_data:
-            if item.get("name") == i.name:
-                found_code = item.get("code")
-                break
-
-        currency_info = {
-            "name": i.name,
-            "code": found_code,
-            "rate": i.rate,
-            "date": i.date.strftime("%Y-%m-%d")
-        }
-        rates_list.append(currency_info)
+    if response.get("status") != "success":
+        logger.error(f"Worker returned a request processing error")
 
 
-    return {
+
+    result = {
         "request_id": request_id,
         "bank": bank,
         "date": date_str,
         "requested_currency": vcc or "всі",
-        "rates": rates_list
+        "text": response.get("text", "")
     }
+
+    if "rates" in response:
+        result["rates"] = response["rates"]
+    else:
+        result["rates"] = []
+
+    return result
 
 
 @app.get("/rates/db", response_model=List[RateResponse])
@@ -204,7 +192,7 @@ def get_rates_from_db(
     rate_date_obj = None
     if date:
         if not validate_date(date):
-            logger.error("Запит містив дату в неправильному форматі. Очікуваний формат: YYYYMMDD")
+            logger.error("The request contained a date in the wrong format. Expected format: YYYYMMDD")
             raise HTTPException(status_code=400, detail="Невірний формат дати")
         rate_date_obj = datetime.strptime(date, "%Y%m%d").date()
 
@@ -262,7 +250,7 @@ def create_manual_rate(rate: ManualRateCreate, current_user: str = Depends(get_c
     )
 
     if inserted == 0:
-        logger.error("Не вдалося зберегти курс в базу даних")
+        logger.error("Failed to save the course to the database")
         raise HTTPException(status_code=500, detail="Не вдалося зберегти курс")
 
     return {"message": "Курс успішно додано"}
@@ -282,7 +270,7 @@ def update_rate(rate_id: int, update_data: RateUpdate, current_user: str = Depen
     :return:
     """
     if not update_data.rate and not update_data.name:
-        logger.error("В запиті не було передано а ні rate а ні name, оновлення неможливе")
+        logger.error("Neither rate nor name was transmitted in the request; update is not possible")
         raise HTTPException(status_code=400, detail="Для оновлення необхідно вказати rate або name або обидва")
 
     success = update_exchange_rate(
@@ -292,7 +280,7 @@ def update_rate(rate_id: int, update_data: RateUpdate, current_user: str = Depen
     )
 
     if not success:
-        logger.error("Не вдалося оновити курс")
+        logger.error("Failed to update the exchange rate")
         raise HTTPException(status_code=404, detail="Запис не знайдено або не оновлено")
 
     return {"message": "Курс успішно оновлено", "rate_id": rate_id}
@@ -310,7 +298,7 @@ def delete_rate(rate_id: int, current_user: str = Depends(get_current_user)):
     """
     deleted = delete_exchange_rates(rate_id=rate_id)
     if deleted == 0:
-        logger.error("Запиту з вказаним id не існує, помилка видалення")
+        logger.error("The query with the specified ID does not exist, deletion error")
         raise HTTPException(status_code=404, detail="Запис не знайдено")
 
     return {"message": "Курс успішно видалено", "deleted_id": rate_id, "count": deleted}

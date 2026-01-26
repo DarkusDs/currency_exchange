@@ -5,13 +5,12 @@ from utils.date_logic import validate_date
 from utils.logger_setup import get_logger
 
 logger = get_logger("SYSTEM")
-from settings import SupportedApi
 
 def parse_arguments():
     """
-    Parse command line arguments
+    Parses and validates command-line arguments for the CLI currency exchange tool
 
-    :return:
+    :return: Namespace object containing validated CLI arguments (bank, currency_date, vcc)
     """
     parser = argparse.ArgumentParser(description='Currency Exchange')
     parser.add_argument('--vcc',
@@ -27,15 +26,13 @@ def parse_arguments():
                         type=str,
                         choices=['nbu', 'privat'],
                         default='nbu',
-                        # choices=SupportedApi().as_list(),
-                        # default=SupportedApi._nbu,
-                        help=f'tag for choosing bank from wich you want get exchange rates {str(SupportedApi)}')
+                        help=f'tag for choosing bank from wich you want get exchange rates')
     args = parser.parse_args()
 
     if not validate_date(args.currency_date):
         print("Дата введена в неправильному форматі. Потрібен формат YYYYMMDD")
-        logger.error("Помилка при введенні дати, формат невірний")
+        logger.error("Error entering date, format is incorrect")
         exit()
 
-    logger.info(f"Завершено парсинг аргументів: {args}")
+    logger.info(f"Argument parsing completed: {args}")
     return parser.parse_args()

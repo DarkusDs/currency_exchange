@@ -1,17 +1,29 @@
 import os
 import subprocess
+import sys
+
 from dotenv import load_dotenv
 
 load_dotenv()
 
 COMPOSE_FILE = "docker-compose.yml"
 
+
 def generate_compose_file():
+    """
+    Generates a docker-compose.yml file dynamically using environment variables
+
+    :return:
+    """
     db_host = os.getenv("DB_HOST")
     db_user = os.getenv("DB_USER")
     db_password = os.getenv("DB_PASSWORD")
     db_name = os.getenv("DB_NAME")
     mysql_root_password = os.getenv("MYSQL_ROOT_PASSWORD")
+    redis_host = os.getenv("REDIS_HOST")
+    redis_password = os.getenv("REDIS_PASSWORD")
+    redis_port = os.getenv("REDIS_PORT")
+    redis_databases = os.getenv("REDIS_DATABASES")
 
     compose_template = f"""
 services:
@@ -31,6 +43,7 @@ services:
       - DB_NAME={db_name}
     volumes:
       - ./logs:/app/logs
+      - .:/app
 
   db:
     image: mysql:8.0
@@ -65,10 +78,13 @@ services:
     depends_on:
       db:
         condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
     restart: unless-stopped
     volumes:
       - ./logs:/app/logs
-    
+      - .:/app
+
   rabbitmq:
     image: rabbitmq:3-management
     container_name: currency-rabbitmq
@@ -80,49 +96,151 @@ services:
       RABBITMQ_DEFAULT_PASS: guest
     volumes:
       - rabbitmq-data:/var/lib/rabbitmq
-    
-  worker:
+    healthcheck:
+      test: ["CMD", "rabbitmqctl", "status"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+  request_worker:
     build: .
-    container_name: currency-rabbitmq-worker
-    command: python -m utils.rabbitmq start_worker
+    container_name: currency-request-worker
+    command: python -m workers.request_processor
     env_file:
       - .env
     depends_on:
-      - rabbitmq
-      - db
+      rabbitmq:
+        condition: service_healthy
     volumes:
+      - .:/app
+    restart: unless-stopped
+
+  save_worker:
+    build: .
+    container_name: currency-save-worker
+    command: python -m workers.save_worker
+    env_file:
+      - .env
+    depends_on:
+      db:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    volumes:
+      - .:/app
       - ./logs:/app/logs
     restart: unless-stopped
+      
+  redis:
+    image: redis:alpine
+    container_name: currency-redis
+    restart: always
+    ports:
+      - "6379:6379"
+    env_file:
+      - .env
+    environment:
+      - REDIS_HOST={redis_host}
+      - REDIS_PASSWORD={redis_password}
+      - REDIS_DATABASES={redis_databases}
+      - REDIS_PORT={redis_port}
+    volumes:
+      - redis-data:/data
 
 volumes:
   mysql-data:
   rabbitmq-data:
+  redis-data:
 """
 
     with open(COMPOSE_FILE, "w", encoding="utf-8") as f:
         f.write(compose_template)
     print(f"Генеровано {COMPOSE_FILE}")
 
-def start_compose():
+def up_compose():
+    """
+    Generates the compose file and starts all services in detached mode
+
+    :return:
+    """
     generate_compose_file()
-    subprocess.run(["docker-compose", "-f", COMPOSE_FILE, "up", "-d", "--build"], check=True)
-    print("Docker-compose піднято")
+    subprocess.run(
+        ["docker-compose", "-f", COMPOSE_FILE, "up", "-d"],
+        check=True
+    )
+    print("Docker-compose успішно піднято")
+
+def build_compose():
+    """
+    Builds Docker images for all services defined in the compose file
+
+    :return:
+    """
+    generate_compose_file()
+    subprocess.run(
+        ["docker-compose", "-f", COMPOSE_FILE, "build"],
+        check=True
+    )
+    print("Docker успішно перебілджено")
+
+def start_compose():
+    """
+    Starts previously created containers without rebuilding them
+
+    :return:
+    """
+    subprocess.run(
+        ["docker-compose", "-f", COMPOSE_FILE, "start"],
+        check=True
+    )
+    print("Docker-compose успішно запущено")
 
 def stop_compose():
-    subprocess.run(["docker-compose", "-f", COMPOSE_FILE, "down"], check=True)
-    os.remove(COMPOSE_FILE)
-    print("Docker-compose зупинено, файл видалено")
+    """
+    Stops running containers without removing them
+
+    :return:
+    """
+    subprocess.run(
+        ["docker-compose", "-f", COMPOSE_FILE, "stop"],
+        check=True
+    )
+    print("Docker-compose успішно зупинено")
+
+def down_compose():
+    """
+    Stops and removes all containers, networks, and the generated compose file
+
+    :return:
+    """
+    subprocess.run(
+        ["docker-compose", "-f", COMPOSE_FILE, "down"],
+        check=True
+    )
+    if os.path.exists(COMPOSE_FILE):
+        os.remove(COMPOSE_FILE)
+
+    print("Docker-compose успішно зупинено і файл видалено")
 
 if __name__ == "__main__":
-    import sys
     if len(sys.argv) < 2:
-        print("Використання: python manage_compose.py (start|stop)")
+        print("Використання: python manage_compose.py (up/build/start/stop/down)")
         sys.exit(1)
 
     command = sys.argv[1].lower()
-    if command == "start":
+
+    if command == "up":
+        up_compose()
+    elif command == "build":
+        build_compose()
+    elif command == "start":
         start_compose()
     elif command == "stop":
         stop_compose()
+    elif command == "down":
+        down_compose()
     else:
         print("Невідома команда")
+
+

@@ -9,21 +9,31 @@ logger = get_logger("SYSTEM")
 
 @dataclass
 class CurrencyRate:
+    """
+    Data container representing a single currency rate with its name, value, and date
+    """
     name: str
     rate: float
     date: datetime
 
     def __str__(self) -> str:
+        """
+        Returns a human-readable string representation of the currency rate
+
+        :return: Formatted string with currency name, rate, and date
+        """
         return f'Назва: {self.name}\nКурс: {self.rate}\nДата {self.date.strftime('%Y-%m-%d')}'
 
 
 def format_currency_data(data: Optional[List[dict]], date: datetime, bank: str, valcode: Optional[str]) -> List[CurrencyRate]:
     """
-    Format currency data into a list of currency rates
+    Converts unified raw currency data into a list of CurrencyRate objects, applying optional currency code filtering
 
-    :param data:
-    :param date:
-    :return:
+    :param data: Unified currency data received from a bank adapter
+    :param date: Date associated with the exchange rates
+    :param bank: Source bank identifier
+    :param valcode: Optional currency code to filter results
+    :return: List of formatted CurrencyRate objects
     """
     currency_data = []
 
@@ -46,10 +56,9 @@ def currency_output_filter(data: List[dict], valcode: Optional[str]) -> List[Dic
     """
     the function returns a list of dictionaries that satisfy the filtering condition by key, i.e. by currency name
 
-    :param data:
-    :param valcode:
-    :param key_for_currency:
-    :return:
+    :param data: List of unified currency dictionaries
+    :param valcode: Optional currency code used for filtering
+    :return: Filtered list of currency dictionaries
     """
     if not valcode:
         return data
@@ -58,5 +67,5 @@ def currency_output_filter(data: List[dict], valcode: Optional[str]) -> List[Dic
         for row in data:
             if row.get("code", "") == valcode:
                 filtered_data.append(row)
-        logger.info(f"Виконано фільтурвання отриманого результату від API, для валюти: {valcode}")
+        logger.info(f"Filtering of the result received from the API has been performed for the currency: {valcode}")
         return filtered_data
