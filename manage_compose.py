@@ -43,7 +43,10 @@ services:
       - DB_NAME={db_name}
     volumes:
       - ./logs:/app/logs
+      - ./db_init.py:/app/db_init.py
       - .:/app
+    command: >
+      sh -c "python db_init.py && uvicorn web:app --host 0.0.0.0 --port 8000"
 
   db:
     image: mysql:8.0
