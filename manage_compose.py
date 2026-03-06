@@ -33,7 +33,8 @@ services:
     ports:
       - "8080:8000"
     depends_on:
-      - db
+      db:
+        condition: service_healthy
     env_file:
       - .env
     environment:
@@ -45,7 +46,7 @@ services:
       - ./logs:/app/logs
       - .:/app
     command: >
-      sh -c "uvicorn web:app --host 0.0.0.0 --port 8000"
+      sh -c "python /app/db/db_init.py && uvicorn web:app --host 0.0.0.0 --port 8000"
 
   db:
     image: mysql:8.0
