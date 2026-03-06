@@ -7,7 +7,7 @@ QUEUE_REQUEST_ROUTING_KEY = 'requests'
 QUEUE_DB_SAVE_NAME = 'currency_save_tasks'
 QUEUE_DB_SAVE_ROUTING_KEY = 'db_save'
 
-
+QUEUE_AUTO_REFRESH_NAME = 'currency_auto_refresh'
 
 
 REDIS_CONFIG = RedisConfig()

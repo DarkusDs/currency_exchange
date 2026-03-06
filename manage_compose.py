@@ -43,10 +43,9 @@ services:
       - DB_NAME={db_name}
     volumes:
       - ./logs:/app/logs
-      - ./db_init.py:/app/db_init.py
       - .:/app
     command: >
-      sh -c "python db_init.py && uvicorn web:app --host 0.0.0.0 --port 8000"
+      sh -c "uvicorn web:app --host 0.0.0.0 --port 8000"
 
   db:
     image: mysql:8.0
@@ -105,6 +104,20 @@ services:
       timeout: 5s
       retries: 5
       start_period: 30s
+      
+  scheduler:
+    build: .
+    container_name: currency_scheduler
+    command: celery -A utils.scheduler:app worker -B -l info
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+    env_file:
+      - .env
+    volumes:
+      - .:/app
+      - .:/logs:/app/logs
+    restart: unless-stopped
 
   request_worker:
     build: .
