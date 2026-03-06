@@ -33,3 +33,26 @@ def get_nbu_exchange_rates(date: str, valcode: str = None) -> Optional[List[Dict
 
     return res
 
+#
+# from .sender import _send_get_request
+# @unify_currency(mapper=dict(code='cc', name='txt', rate='rate'))
+# async def get_nbu_exchange_rates(date: str, valcode: str = None) -> Optional[List[Dict]]:
+#     """
+#     Retrieves exchange rates from the National Bank of Ukraine API and returns them in a unified format
+#
+#     :param date: Date for which exchange rates are requested, in YYYYMMDD format
+#     :param valcode: Optional 3-letter currency code (e.g. "USD"); if None, all currencies are returned
+#     :return: A list of unified currency rate dictionaries, or None if the request fails
+#     """
+#     url = 'https://bank.gov.ua/NBUStatService/v1/statdirectory/exchange'
+#     params = {
+#         'date': date,
+#         'type': 'json'
+#     }
+#     if valcode:
+#         params['valcode'] = valcode
+#
+#     response = await _send_get_request(url=url, params=params)
+#     res = response if response else []
+#     logger.info(f"The exchange rate {valcode} was successfully obtained on {date}")
+#     return res
