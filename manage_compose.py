@@ -46,7 +46,7 @@ services:
       - ./logs:/app/logs
       - .:/app
     command: >
-      sh -c "python /app/db/db_init.py && uvicorn web:app --host 0.0.0.0 --port 8000"
+      sh -c "alembic upgrade head && uvicorn web:app --host 0.0.0.0 --port 8000"
 
   db:
     image: mysql:8.0
